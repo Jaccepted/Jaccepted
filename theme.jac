@@ -351,3 +351,219 @@ def:pub step_look(current: bool, done: bool) -> dict[str, str] {
         "cursor": "pointer"
     };
 }
+
+# --- Results page ---
+
+glob:pub RESULTS_PAGE: dict[str, str] = {
+    "maxWidth": "72rem",
+    "margin": "0 auto",
+    "padding": "1.5rem 1rem 3rem",
+    "boxSizing": "border-box"
+};
+
+glob:pub BUCKETS_GRID: dict[str, str] = {
+    "display": "grid",
+    "gridTemplateColumns": "repeat(auto-fit, minmax(18rem, 1fr))",
+    "gap": "1.25rem",
+    "alignItems": "start",
+    "marginTop": "1rem"
+};
+
+glob:pub BUCKET_COL: dict[str, str] = {
+    "display": "flex",
+    "flexDirection": "column",
+    "gap": "0.75rem"
+};
+
+glob:pub BUCKET_HEAD: dict[str, str] = {
+    "display": "flex",
+    "alignItems": "baseline",
+    "justifyContent": "space-between",
+    "borderBottom": "2px solid #d8d0c2",
+    "paddingBottom": "0.4rem"
+};
+
+glob:pub BUCKET_LABEL_REACH: dict[str, str] = {
+    "margin": "0",
+    "fontFamily": "Palatino, Iowan Old Style, Georgia, serif",
+    "fontSize": "1.4rem",
+    "fontWeight": "600",
+    "color": "#8e2432"
+};
+
+glob:pub BUCKET_LABEL_TARGET: dict[str, str] = {
+    "margin": "0",
+    "fontFamily": "Palatino, Iowan Old Style, Georgia, serif",
+    "fontSize": "1.4rem",
+    "fontWeight": "600",
+    "color": "#8a5a00"
+};
+
+glob:pub BUCKET_LABEL_LIKELY: dict[str, str] = {
+    "margin": "0",
+    "fontFamily": "Palatino, Iowan Old Style, Georgia, serif",
+    "fontSize": "1.4rem",
+    "fontWeight": "600",
+    "color": "#0f5c4c"
+};
+
+glob:pub BUCKET_COUNT: dict[str, str] = {
+    "margin": "0",
+    "color": "#5c6570",
+    "fontSize": "0.85rem"
+};
+
+glob:pub COLLEGE_CARD: dict[str, str] = {
+    "background": "#fffdf8",
+    "border": "1px solid #d8d0c2",
+    "borderRadius": "12px",
+    "padding": "0.9rem 1rem"
+};
+
+glob:pub COLLEGE_NAME: dict[str, str] = {
+    "margin": "0",
+    "fontWeight": "700"
+};
+
+glob:pub COLLEGE_LOCATION: dict[str, str] = {
+    "margin": "0.1rem 0 0.5rem",
+    "color": "#5c6570",
+    "fontSize": "0.875rem"
+};
+
+glob:pub CARD_STATS: dict[str, str] = {
+    "display": "flex",
+    "flexWrap": "wrap",
+    "gap": "0.25rem 0.9rem",
+    "fontSize": "0.85rem"
+};
+
+glob:pub STAT_ITEM: dict[str, str] = {
+    "whiteSpace": "nowrap"
+};
+
+glob:pub BUCKET_REASON_TEXT: dict[str, str] = {
+    "margin": "0.5rem 0",
+    "color": "#5c6570",
+    "fontSize": "0.85rem"
+};
+
+glob:pub FIT_BADGE: dict[str, str] = {
+    "display": "inline-block",
+    "padding": "0.15rem 0.6rem",
+    "borderRadius": "999px",
+    "background": "#e5f4ef",
+    "color": "#0f5c4c",
+    "fontSize": "0.8rem",
+    "fontWeight": "700"
+};
+
+glob:pub BALANCE_BAR: dict[str, str] = {
+    "display": "flex",
+    "flexWrap": "wrap",
+    "gap": "0.5rem 1.25rem",
+    "alignItems": "center",
+    "marginTop": "1rem",
+    "padding": "0.7rem 0.9rem",
+    "background": "#fffdf8",
+    "border": "1px solid #d8d0c2",
+    "borderRadius": "10px",
+    "fontWeight": "600"
+};
+
+glob:pub BALANCE_ITEM: dict[str, str] = {
+    "fontSize": "0.875rem"
+};
+
+glob:pub EMPTY_BUCKET: dict[str, str] = {
+    "padding": "1rem",
+    "border": "1px dashed #d8d0c2",
+    "borderRadius": "12px",
+    "color": "#5c6570",
+    "fontSize": "0.9rem"
+};
+
+glob:pub LOADING_BOX: dict[str, str] = {
+    "marginTop": "1.5rem",
+    "padding": "2rem 1rem",
+    "textAlign": "center",
+    "color": "#5c6570"
+};
+
+glob:pub CARD_ACTIONS: dict[str, str] = {
+    "display": "flex",
+    "gap": "0.5rem",
+    "marginTop": "0.7rem"
+};
+
+glob:pub SMALL_BTN: dict[str, str] = {
+    "minHeight": "36px",
+    "borderRadius": "8px",
+    "font": "inherit",
+    "fontSize": "0.85rem",
+    "cursor": "pointer",
+    "padding": "0.3rem 0.7rem",
+    "background": "transparent",
+    "color": "#1b2430",
+    "border": "1px solid #d8d0c2"
+};
+
+glob:pub SMALL_BTN_ON: dict[str, str] = {
+    "minHeight": "36px",
+    "borderRadius": "8px",
+    "font": "inherit",
+    "fontSize": "0.85rem",
+    "cursor": "pointer",
+    "padding": "0.3rem 0.7rem",
+    "background": "#0f5c4c",
+    "color": "#f6f3ea",
+    "border": "1px solid #0f5c4c"
+};
+
+glob:pub TOOLBAR: dict[str, str] = {
+    "display": "flex",
+    "flexWrap": "wrap",
+    "gap": "0.6rem",
+    "marginTop": "1rem",
+    "alignItems": "center"
+};
+
+glob:pub TOOL_CONTROL: dict[str, str] = {
+    "minHeight": "36px",
+    "font": "inherit",
+    "fontSize": "0.9rem",
+    "padding": "0.3rem 0.6rem",
+    "border": "1px solid #d8d0c2",
+    "borderRadius": "8px",
+    "background": "#fffdf8",
+    "color": "#1b2430"
+};
+
+glob:pub REASONS_SUMMARY: dict[str, str] = {
+    "cursor": "pointer",
+    "marginTop": "0.5rem",
+    "color": "#0f5c4c",
+    "fontSize": "0.85rem",
+    "fontWeight": "600"
+};
+
+glob:pub REASONS_LIST: dict[str, str] = {
+    "margin": "0.4rem 0 0",
+    "paddingLeft": "1.1rem",
+    "color": "#5c6570",
+    "fontSize": "0.85rem"
+};
+
+glob:pub SECTION_HEAD: dict[str, str] = {
+    "margin": "1rem 0 0.4rem",
+    "fontSize": "1.1rem"
+};
+
+glob:pub DISCLAIMER: dict[str, str] = {
+    "margin": "0.5rem 0 0",
+    "padding": "0.5rem 0.7rem",
+    "borderLeft": "3px solid #8a5a00",
+    "background": "#fbf3df",
+    "color": "#5c4300",
+    "fontSize": "0.85rem"
+};

@@ -4,6 +4,7 @@ Collects the MVP profile: academics, test scores, up to three majors, and
 core campus, cost, and home preferences. The draft stays in this browser.
 """
 
+import from "@jac/runtime" { Link }
 import from .components.fields { CheckField, Importance, RadioLine, SelectField, TextField }
 import from .majors { MAJOR_NAMES }
 import from .intake_rules {
@@ -627,7 +628,7 @@ def:pub IntakeForm -> JsxElement {
                 <h2 id="step-title" style={SECTION_TITLE}>{title}</h2>
                 <p style={LEDE}>{copy}</p>
                 {error and <p style={BANNER} role="alert">{error}</p>}
-                {finished == "yes" and step == "5" and <p style={SUCCESS} role="status">Profile saved in this browser. You can keep editing it on this device.</p>}
+                {finished == "yes" and step == "5" and <p style={SUCCESS} role="status">Profile saved in this browser. You can keep editing it on this device. <Link to="/results">See my matches →</Link></p>}
                 {if step == "0" {
                     <div style={STACK}>
                         <TextField
