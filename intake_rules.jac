@@ -106,6 +106,27 @@ def scale_bounds(scale: str) -> str {
     return "0 and 4.0";
 }
 
+"""Weighted GPAs add points for honors and AP courses, so they can pass the scale."""
+def weighted_limit(scale: str) -> float {
+    if scale == "100" {
+        return 110.0;
+    }
+    if scale == "5.0" {
+        return 6.0;
+    }
+    return 5.0;
+}
+
+def weighted_bounds(scale: str) -> str {
+    if scale == "100" {
+        return "0 and 110";
+    }
+    if scale == "5.0" {
+        return "0 and 6.0";
+    }
+    return "0 and 5.0";
+}
+
 def academics_error(
     gpa_unweighted: str,
     gpa_weighted: str,
@@ -136,9 +157,9 @@ def academics_error(
             "Weighted GPA",
             gpa_weighted,
             0.0,
-            scale_limit(gpa_scale),
+            weighted_limit(gpa_scale),
             False,
-            scale_bounds(gpa_scale)
+            weighted_bounds(gpa_scale)
         );
     }
     if weighted_message {

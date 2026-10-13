@@ -4,6 +4,7 @@ Collects the MVP profile: academics, test scores, up to three majors, and
 core campus, cost, and home preferences. The draft stays in this browser.
 """
 
+import from "@jac/runtime" { useNavigate }
 import from .components.fields { CheckField, Importance, RadioLine, SelectField, TextField }
 import from .majors { MAJOR_NAMES }
 import from .intake_rules {
@@ -129,6 +130,8 @@ def:pub IntakeForm -> JsxElement {
         home_state: str = "",
         home_zip: str = "",
         first_gen: str = "";
+
+    navigate = useNavigate();
 
     def remember -> None {
         try {
@@ -354,6 +357,7 @@ def:pub IntakeForm -> JsxElement {
         if step == "5" {
             finished = "yes";
             remember();
+            navigate("/results");
             return;
         }
         step = str(int(step) + 1);
@@ -934,7 +938,7 @@ def:pub IntakeForm -> JsxElement {
                             <dl style={REVIEW}>
                                 {review_item("Regions", region_summary() + " (" + importance_label(location_importance) + ")")}
                                 {review_item("Setting", setting_summary() + " (" + importance_label(setting_importance) + ")")}
-                                {review_item("Distance", show(distance) + " (" + importance_label(distance_importance) + ")")}
+                                {review_item("Distance", (distance.strip() + " miles" if distance.strip() else show(distance)) + " (" + importance_label(distance_importance) + ")")}
                                 {review_item("Size", size_summary() + " (" + importance_label(size_importance) + ")")}
                                 {review_item("Type", control_summary() + " (" + importance_label(control_importance) + ")")}
                                 {review_item("Religious affiliation", religious_summary() + " (" + importance_label(religious_importance) + ")")}
@@ -962,7 +966,7 @@ def:pub IntakeForm -> JsxElement {
                 <div style={NAV}>
                     {step != "0" and <button type="button" style={SECONDARY} onClick={prev_step}>Back</button>}
                     {if step == "5" {
-                        <button type="button" style={PRIMARY}>Submit</button>
+                        <button type="button" style={PRIMARY} onClick={next_step}>See my college list</button>
                     } else {
                         <button type="button" style={PRIMARY} onClick={next_step}>Continue</button>
                     }}

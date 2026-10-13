@@ -351,3 +351,100 @@ def:pub step_look(current: bool, done: bool) -> dict[str, str] {
         "cursor": "pointer"
     };
 }
+
+glob:pub BUCKET_HEAD: dict[str, str] = {
+    "display": "flex",
+    "alignItems": "baseline",
+    "justifyContent": "space-between",
+    "gap": "0.75rem",
+    "flexWrap": "wrap"
+};
+
+glob:pub RESULT: dict[str, str] = {
+    "padding": "0.85rem 0",
+    "borderTop": "1px solid #d8d0c2"
+};
+
+glob:pub RESULT_HEAD: dict[str, str] = {
+    "display": "flex",
+    "alignItems": "flex-start",
+    "justifyContent": "space-between",
+    "gap": "0.75rem"
+};
+
+glob:pub RESULT_NAME: dict[str, str] = {
+    "margin": "0",
+    "fontSize": "1.05rem",
+    "fontWeight": "650"
+};
+
+glob:pub FIT: dict[str, str] = {
+    "flexShrink": "0",
+    "minWidth": "3.2rem",
+    "padding": "0.2rem 0.5rem",
+    "borderRadius": "8px",
+    "background": "#e5f4ef",
+    "color": "#0f5c4c",
+    "fontWeight": "700",
+    "textAlign": "center"
+};
+
+glob:pub FACTS: dict[str, str] = {
+    "display": "flex",
+    "flexWrap": "wrap",
+    "gap": "0.25rem 1rem",
+    "margin": "0.3rem 0 0",
+    "color": "#5c6570",
+    "fontSize": "0.9rem"
+};
+
+glob:pub REASONS: dict[str, str] = {
+    "margin": "0.45rem 0 0",
+    "paddingLeft": "1.1rem",
+    "fontSize": "0.95rem"
+};
+
+glob:pub BADGE: dict[str, str] = {
+    "display": "inline-block",
+    "marginLeft": "0.5rem",
+    "padding": "0.05rem 0.45rem",
+    "borderRadius": "999px",
+    "background": "#0f5c4c",
+    "color": "#f6f3ea",
+    "fontSize": "0.72rem",
+    "fontWeight": "700",
+    "letterSpacing": "0.03em",
+    "textTransform": "uppercase",
+    "verticalAlign": "middle"
+};
+
+glob:pub LINK: dict[str, str] = {
+    "color": "#0f5c4c",
+    "fontWeight": "650"
+};
+
+def:pub bucket_look(bucket: str) -> dict[str, str] {
+    color = "#0f5c4c";
+    if bucket == "reach" {
+        color = "#8e2432";
+    } elif bucket == "target" {
+        color = "#8a5a00";
+    }
+    return {
+        "margin": "0",
+        "fontFamily": "Palatino, Iowan Old Style, Georgia, serif",
+        "fontSize": "1.5rem",
+        "color": color
+    };
+}
+
+glob:pub LINK_BUTTON: dict[str, str] = {
+    "border": "0",
+    "padding": "0",
+    "background": "transparent",
+    "color": "#0f5c4c",
+    "font": "inherit",
+    "fontWeight": "650",
+    "textDecoration": "underline",
+    "cursor": "pointer"
+};
