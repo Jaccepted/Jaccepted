@@ -47,6 +47,19 @@ obj MatchResponse {
     has error: str = "";
 }
 
+obj CollegeDetail {
+    has found: bool = False,
+        college: dict[str, any] = {},
+        cds: dict[str, any] = {},
+        bucket: str = "",
+        bucket_reason: str = "",
+        fit_score: int = 0,
+        fit_reasons: list[str] = [],
+        price: int | None = None,
+        distance_miles: int | None = None,
+        program_count: int = 0;
+}
+
 # --- Data loading helpers (defined before the globs that call them) ---
 
 glob DATA_DIR: any = Path(os.path.dirname(__file__)).resolve() / "data";
@@ -105,6 +118,20 @@ glob _programs_index: dict[str, list[str]] = _build_programs_index(
 glob _zip_coords: dict[str, list[float]] = _build_zip_index(
     _read_jsonl(DATA_DIR / "zip_centroids.jsonl")
 );
+
+def _build_cds_index(rows: list[any]) -> dict[str, any] {
+    idx: dict[str, any] = {};
+    for row in rows {
+        uid = str(row.get("unitid", ""));
+        if uid {
+            idx[uid] = row;
+        }
+    }
+    return idx;
+}
+
+glob _cds_index: dict[str, any] = _build_cds_index(_read_jsonl(DATA_DIR / "cds.jsonl"));
+glob _college_index: dict[str, any] = {str(c.get("unitid", "")): c for c in _colleges};
 
 # --- Pure helpers ---
 
@@ -177,6 +204,30 @@ def _price_for_bracket(college: any, income: str) -> int | None {
         return college.get("net_price_110k_plus");
     }
     return None;
+}
+
+def _effective_price(college: any, income: str) -> int | None {
+    # Price for the student's income bracket if known; otherwise the school's
+    # overall average net price; otherwise the mean of whichever brackets exist.
+    price = _price_for_bracket(college, income);
+    if price is not None {
+        return price;
+    }
+    overall = college.get("net_price");
+    if overall is not None {
+        return overall;
+    }
+    vals: list[int] = [];
+    for key in ["net_price_0_30k", "net_price_30_48k", "net_price_48_75k", "net_price_75_110k", "net_price_110k_plus"] {
+        v = college.get(key);
+        if v is not None {
+            vals.append(int(v));
+        }
+    }
+    if len(vals) == 0 {
+        return None;
+    }
+    return int(round(sum(vals) / len(vals)));
 }
 
 def _importance_weight(level: str) -> float {
@@ -287,10 +338,7 @@ def _should_filter(college: any, profile: any,
             and max_price_raw.strip()) {
         max_price = _parse_f(max_price_raw);
         income = str(profile.get("income_bracket", ""));
-        effective = _price_for_bracket(college, income);
-        if effective is None {
-            effective = college.get("net_price");
-        }
+        effective = _effective_price(college, income);
         if max_price is not None and effective is not None and effective > max_price {
             return True;
         }
@@ -495,10 +543,7 @@ def _compute_fit(college: any, profile: any, cip_prefixes: list[str],
     if w_price > 0.0 {
         denom = denom + w_price * 15.0;
         max_price = _parse_f(max_price_raw);
-        effective = _price_for_bracket(college, income);
-        if effective is None {
-            effective = college.get("net_price");
-        }
+        effective = _effective_price(college, income);
         if effective is not None {
             eff_f = float(effective);
             if max_price is not None {
@@ -600,7 +645,7 @@ def:pub match_colleges(profile: any) -> MatchResponse {
         fit_reasons = fit_pair[1] as list[str];
 
         income = str(profile.get("income_bracket", ""));
-        price_bracket = _price_for_bracket(college, income);
+        price_bracket = _effective_price(college, income);
 
         r25 = college.get("sat_reading_p25");
         m25 = college.get("sat_math_p25");
@@ -671,5 +716,79 @@ def:pub match_colleges(profile: any) -> MatchResponse {
         target=target,
         likely=likely,
         total_filtered=filtered
+    );
+}
+
+
+# Fields from colleges.jsonl safe to send to the detail page.
+glob _DETAIL_FIELDS: list[str] = [
+    "unitid", "name", "city", "state", "region", "setting", "control", "website",
+    "hbcu", "womens_college", "religiously_affiliated", "open_admission",
+    "undergrad_enrollment", "size_band", "applicants", "admitted", "admit_rate",
+    "yield_rate", "sat_reading_p25", "sat_reading_p75", "sat_math_p25", "sat_math_p75",
+    "act_p25", "act_p75", "sat_submit_rate", "act_submit_rate", "test_policy",
+    "tuition_in_state", "fees_in_state", "tuition_out_of_state", "fees_out_of_state",
+    "room_and_board", "application_fee", "net_price", "net_price_0_30k",
+    "net_price_30_48k", "net_price_48_75k", "net_price_75_110k", "net_price_110k_plus",
+    "grad_rate_4yr", "grad_rate_6yr", "retention_rate", "earnings_6yr", "earnings_10yr",
+    "median_debt", "pell_share", "first_gen_share", "latitude", "longitude"
+];
+
+def:pub college_detail(unitid: str, profile: any) -> CollegeDetail {
+    college = _college_index.get(str(unitid));
+    if college is None {
+        return CollegeDetail();
+    }
+    home_zip = str(profile.get("home_zip", "")).strip().zfill(5)[:5];
+    home_coords: list[float] | None = _zip_coords.get(home_zip);
+
+    major_names: list[str] = [];
+    if str(profile.get("undecided", "no")) != "yes" {
+        for key in ["major1", "major2", "major3"] {
+            n = str(profile.get(key, "")).strip();
+            if n {
+                major_names.append(n);
+            }
+        }
+    }
+    cip_prefixes = _major_cip_prefixes(major_names);
+
+    bucket_pair = _compute_bucket(college, profile);
+    fit_pair = _compute_fit(college, profile, cip_prefixes, home_coords);
+
+    slim: dict[str, any] = {};
+    for key in _DETAIL_FIELDS {
+        slim[key] = college.get(key);
+    }
+
+    cds_row = _cds_index.get(str(unitid));
+    cds: dict[str, any] = {};
+    if cds_row is not None {
+        for key in ["cds_year", "archive_url", "gpa_average", "gpa_pct", "ed_offered",
+                    "ed_admit_rate", "ea_offered", "ea_restrictive", "in_state_admit_rate",
+                    "out_of_state_admit_rate", "sat_composite_p25", "sat_composite_p50",
+                    "sat_composite_p75", "gpa_importance", "test_importance"] {
+            cds[key] = cds_row.get(key);
+        }
+    }
+
+    dist: int | None = None;
+    lat = college.get("latitude");
+    lon = college.get("longitude");
+    if home_coords is not None and lat is not None and lon is not None {
+        dist = int(round(_haversine(home_coords[0], home_coords[1], float(lat), float(lon))));
+    }
+
+    return CollegeDetail(
+        found=True,
+        college=slim,
+        cds=cds,
+        bucket=str(bucket_pair[0]),
+        bucket_reason=str(bucket_pair[1]),
+        fit_score=int(fit_pair[0]),
+        fit_reasons=fit_pair[1] as list[str],
+        price=_effective_price(college, str(profile.get("income_bracket", ""))),
+        distance_miles=dist,
+        program_count=len(_programs_index.get(str(unitid), []))
     );
 }

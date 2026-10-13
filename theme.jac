@@ -567,3 +567,103 @@ glob:pub DISCLAIMER: dict[str, str] = {
     "color": "#5c4300",
     "fontSize": "0.85rem"
 };
+
+# --- College detail page ---
+
+glob:pub COLLEGE_LINK: dict[str, str] = {
+    "color": "inherit",
+    "textDecoration": "none",
+    "borderBottom": "1px dotted #5c6570"
+};
+
+glob:pub DETAIL_PAGE: dict[str, str] = {
+    "maxWidth": "56rem",
+    "margin": "0 auto",
+    "padding": "1.5rem 1rem 3rem",
+    "boxSizing": "border-box"
+};
+
+glob:pub DETAIL_GRID: dict[str, str] = {
+    "display": "grid",
+    "gridTemplateColumns": "repeat(auto-fit, minmax(16rem, 1fr))",
+    "gap": "1rem",
+    "marginTop": "1rem"
+};
+
+glob:pub DETAIL_CARD: dict[str, str] = {
+    "background": "#fffdf8",
+    "border": "1px solid #d8d0c2",
+    "borderRadius": "12px",
+    "padding": "1rem"
+};
+
+glob:pub DETAIL_HEAD: dict[str, str] = {
+    "margin": "0 0 0.6rem",
+    "fontFamily": "Palatino, Iowan Old Style, Georgia, serif",
+    "fontSize": "1.2rem"
+};
+
+glob:pub STAT_ROW: dict[str, str] = {
+    "display": "flex",
+    "justifyContent": "space-between",
+    "gap": "1rem",
+    "padding": "0.3rem 0",
+    "borderBottom": "1px solid #efe9db",
+    "fontSize": "0.9rem"
+};
+
+glob:pub STAT_LABEL: dict[str, str] = {
+    "color": "#5c6570"
+};
+
+glob:pub STAT_VALUE: dict[str, str] = {
+    "fontWeight": "600",
+    "textAlign": "right"
+};
+
+glob:pub RANGE_TRACK: dict[str, str] = {
+    "position": "relative",
+    "height": "10px",
+    "background": "#efe9db",
+    "borderRadius": "999px",
+    "margin": "1.4rem 0 0.4rem"
+};
+
+glob:pub BADGE_ROW: dict[str, str] = {
+    "display": "flex",
+    "flexWrap": "wrap",
+    "gap": "0.5rem",
+    "alignItems": "center",
+    "marginTop": "0.6rem"
+};
+
+glob:pub NOTE_TEXT: dict[str, str] = {
+    "margin": "0.5rem 0 0",
+    "color": "#5c6570",
+    "fontSize": "0.8rem"
+};
+
+def:pub range_fill(lo_pct: float, hi_pct: float) -> dict[str, str] {
+    return {
+        "position": "absolute",
+        "top": "0",
+        "bottom": "0",
+        "left": str(lo_pct) + "%",
+        "width": str(max(hi_pct - lo_pct, 1.0)) + "%",
+        "background": "#0f5c4c",
+        "opacity": "0.55",
+        "borderRadius": "999px"
+    };
+}
+
+def:pub range_marker(pct: float) -> dict[str, str] {
+    return {
+        "position": "absolute",
+        "top": "-6px",
+        "left": "calc(" + str(pct) + "% - 3px)",
+        "width": "6px",
+        "height": "22px",
+        "background": "#8e2432",
+        "borderRadius": "3px"
+    };
+}

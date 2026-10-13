@@ -1,6 +1,7 @@
 """Results page: shows Reach / Target / Likely colleges for the saved profile."""
 
 import from "@jac/runtime" { Link }
+import from ..format { fmt_rate, fmt_price, fmt_sat, fmt_act }
 import from ..matcher { match_colleges, MatchResult, MatchResponse }
 import from ..theme {
     Shell,
@@ -28,6 +29,7 @@ import from ..theme {
     LEDE,
     BANNER,
     SECONDARY,
+    COLLEGE_LINK,
     CARD_ACTIONS,
     SMALL_BTN,
     SMALL_BTN_ON,
@@ -37,40 +39,6 @@ import from ..theme {
     REASONS_SUMMARY,
     SECTION_HEAD,
     DISCLAIMER
-}
-
-def fmt_rate(rate: float | None) -> str {
-    if rate is None {
-        return "—";
-    }
-    return str(round(float(rate) * 100.0)) + "%";
-}
-
-def fmt_price(price: int | None) -> str {
-    if price is None {
-        return "—";
-    }
-    return "$" + f"{price:,}";
-}
-
-def fmt_sat(p25: int | None, p75: int | None) -> str {
-    if p25 is None {
-        return "";
-    }
-    if p75 is None {
-        return str(p25);
-    }
-    return f"{p25:,}–{p75:,}";
-}
-
-def fmt_act(p25: int | None, p75: int | None) -> str {
-    if p25 is None {
-        return "";
-    }
-    if p75 is None {
-        return str(p25);
-    }
-    return f"{p25}–{p75}";
 }
 
 def CollegeCard(
@@ -88,7 +56,7 @@ def CollegeCard(
     save_label = "Saved ✓" if saved else "Save";
     save_style = SMALL_BTN_ON if saved else SMALL_BTN;
     <div style={COLLEGE_CARD}>
-        <p style={COLLEGE_NAME}>{college.name}</p>
+        <p style={COLLEGE_NAME}><Link to={"/college/" + college.unitid} style={COLLEGE_LINK}>{college.name}</Link></p>
         <p style={COLLEGE_LOCATION}>{college.city}, {college.state}</p>
         <div style={CARD_STATS}>
             <span style={STAT_ITEM}>Admit: {fmt_rate(college.admit_rate)}</span>
