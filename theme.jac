@@ -202,6 +202,42 @@ glob:pub CONTROL_OFF: dict[str, str] = {
     "boxSizing": "border-box"
 };
 
+glob:pub CONTROL_OPEN: dict[str, str] = {
+    "borderColor": "#0f5c4c",
+    "borderBottomLeftRadius": "0",
+    "borderBottomRightRadius": "0",
+    "outline": "none"
+};
+
+glob:pub SUGGEST_LIST: dict[str, str] = {
+    "listStyle": "none",
+    "margin": "-0.3rem 0 0",
+    "padding": "0.25rem",
+    "maxHeight": "15rem",
+    "overflowY": "auto",
+    "border": "1px solid #0f5c4c",
+    "borderTop": "1px solid #ebe5d9",
+    "borderRadius": "0 0 10px 10px",
+    "background": "white",
+    "boxSizing": "border-box"
+};
+
+glob:pub SUGGEST_ITEM: dict[str, str] = {
+    "padding": "0.6rem 0.6rem",
+    "borderRadius": "7px",
+    "cursor": "pointer",
+    "color": "#1b2430"
+};
+
+glob:pub SUGGEST_ITEM_ON: dict[str, str] = {
+    "padding": "0.6rem 0.6rem",
+    "borderRadius": "7px",
+    "cursor": "pointer",
+    "color": "#0f5c4c",
+    "background": "#e8f1ee",
+    "fontWeight": "600"
+};
+
 glob:pub HINT: dict[str, str] = {
     "margin": "0",
     "color": "#5c6570",
@@ -258,6 +294,56 @@ glob:pub SUCCESS: dict[str, str] = {
     "borderRadius": "10px",
     "background": "#e5f4ef",
     "color": "#0f5c4c"
+};
+
+glob:pub TOPBAR: dict[str, str] = {
+    "position": "sticky",
+    "top": "0",
+    "zIndex": "10",
+    "background": "#f3efe4",
+    "borderBottom": "1px solid #d8d0c2"
+};
+
+glob:pub TOPBAR_INNER: dict[str, str] = {
+    "maxWidth": "42rem",
+    "margin": "0 auto",
+    "padding": "0.6rem 1rem",
+    "boxSizing": "border-box"
+};
+
+glob:pub TOPBAR_LINKS: dict[str, str] = {
+    "display": "flex",
+    "flexWrap": "wrap",
+    "gap": "0.4rem",
+    "listStyle": "none",
+    "margin": "0",
+    "padding": "0"
+};
+
+glob:pub TOPBAR_LINK: dict[str, str] = {
+    "display": "inline-flex",
+    "alignItems": "center",
+    "minHeight": "40px",
+    "padding": "0 0.8rem",
+    "borderRadius": "999px",
+    "border": "1px solid #d8d0c2",
+    "background": "white",
+    "color": "#0f5c4c",
+    "fontWeight": "650",
+    "textDecoration": "none"
+};
+
+glob:pub TOPBAR_LINK_ON: dict[str, str] = {
+    "display": "inline-flex",
+    "alignItems": "center",
+    "minHeight": "40px",
+    "padding": "0 0.8rem",
+    "borderRadius": "999px",
+    "border": "1px solid #0f5c4c",
+    "background": "#0f5c4c",
+    "color": "#f6f3ea",
+    "fontWeight": "650",
+    "textDecoration": "none"
 };
 
 glob:pub NAV: dict[str, str] = {
