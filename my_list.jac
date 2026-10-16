@@ -1,6 +1,6 @@
 """My List: saved colleges by bucket, with a balance check."""
 
-import from .list_store { balance_warning, load_saved, store_saved }
+import from .list_store { balance_warning, refresh_saved, store_saved }
 import from .components.nav { TopNav }
 import from .theme {
     BANNER,
@@ -28,8 +28,12 @@ glob BUCKETS: list[list[str]] = [["reach", "Reach"], ["target", "Target"], ["lik
 def:pub MyList -> JsxElement {
     has items: list[dict[str, any]] = [];
 
+    async def load -> None {
+        items = await refresh_saved();
+    }
+
     can with entry {
-        items = load_saved();
+        load();
     }
 
     def remove(unitid: str) -> None {

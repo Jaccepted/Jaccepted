@@ -1,4 +1,7 @@
-"""Saved and dismissed colleges, kept in this browser like the intake draft."""
+"""Saved and dismissed colleges, kept in this browser and the account."""
+
+import from "@jac/runtime" { jacIsLoggedIn }
+import from .accounts { load_dismissed_ids, load_list, save_dismissed, save_list }
 
 def read_json(key: str) -> any {
     try {
@@ -28,8 +31,42 @@ def:pub load_saved -> list[dict[str, any]] {
     return [];
 }
 
+async def:pub refresh_saved -> list[dict[str, any]] {
+    if jacIsLoggedIn() {
+        remote: dict[str, any] | None = None;
+        try {
+            remote = await load_list();
+        } except Exception {
+            remote = None;
+        }
+        if remote and remote.get("data") {
+            try {
+                parsed = JSON.parse(remote["data"] as str);
+                if parsed {
+                    write_json("jaccepted.saved", parsed);
+                    return parsed as list[dict[str, any]];
+                }
+            } except Exception {
+            }
+        }
+    }
+    return load_saved();
+}
+
 def:pub store_saved(items: list[dict[str, any]]) -> None {
     write_json("jaccepted.saved", items);
+    sync_saved(items);
+}
+
+async def sync_saved(items: list[dict[str, any]]) -> None {
+    if not jacIsLoggedIn() {
+        return;
+    }
+    try {
+        await save_list(JSON.stringify(items));
+    } except Exception {
+        return;
+    }
 }
 
 def:pub load_dismissed -> list[str] {
@@ -40,8 +77,42 @@ def:pub load_dismissed -> list[str] {
     return [];
 }
 
+async def:pub refresh_dismissed -> list[str] {
+    if jacIsLoggedIn() {
+        remote: dict[str, any] | None = None;
+        try {
+            remote = await load_dismissed_ids();
+        } except Exception {
+            remote = None;
+        }
+        if remote and remote.get("data") {
+            try {
+                parsed = JSON.parse(remote["data"] as str);
+                if parsed {
+                    write_json("jaccepted.dismissed", parsed);
+                    return parsed as list[str];
+                }
+            } except Exception {
+            }
+        }
+    }
+    return load_dismissed();
+}
+
 def:pub store_dismissed(ids: list[str]) -> None {
     write_json("jaccepted.dismissed", ids);
+    sync_dismissed(ids);
+}
+
+async def sync_dismissed(ids: list[str]) -> None {
+    if not jacIsLoggedIn() {
+        return;
+    }
+    try {
+        await save_dismissed(JSON.stringify(ids));
+    } except Exception {
+        return;
+    }
 }
 
 """A warning when the saved list is lopsided, or "" when it looks balanced."""

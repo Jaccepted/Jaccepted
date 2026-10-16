@@ -1,10 +1,12 @@
 """Profile intake wizard.
 
 Collects the MVP profile: academics, test scores, up to three majors, and
-core campus, cost, and home preferences. The draft stays in this browser.
+core campus, cost, and home preferences. The draft is kept in this browser
+and copied to the signed-in account.
 """
 
-import from "@jac/runtime" { useNavigate }
+import from "@jac/runtime" { jacIsLoggedIn, useNavigate }
+import from .accounts { load_intake, save_intake }
 import from .components.fields { CheckField, Importance, RadioLine, SelectField, TextField }
 import from .majors { MAJOR_NAMES }
 import from .intake_rules {
@@ -133,74 +135,84 @@ def:pub IntakeForm -> JsxElement {
 
     navigate = useNavigate();
 
+    def draft_json -> str {
+        return JSON.stringify({
+            "step": step,
+            "finished": finished,
+            "gpa_unweighted": gpa_unweighted,
+            "gpa_weighted": gpa_weighted,
+            "gpa_scale": gpa_scale,
+            "class_percentile": class_percentile,
+            "class_rank": class_rank,
+            "class_size": class_size,
+            "ap_count": ap_count,
+            "ib_count": ib_count,
+            "honors_count": honors_count,
+            "dual_count": dual_count,
+            "grad_year": grad_year,
+            "test_plan": test_plan,
+            "sat_total": sat_total,
+            "sat_reading": sat_reading,
+            "sat_math": sat_math,
+            "act_composite": act_composite,
+            "act_english": act_english,
+            "act_math": act_math,
+            "act_reading": act_reading,
+            "act_science": act_science,
+            "undecided": undecided,
+            "major1": major1,
+            "major2": major2,
+            "major3": major3,
+            "regions": regions,
+            "location_importance": location_importance,
+            "setting": setting,
+            "setting_importance": setting_importance,
+            "distance": distance,
+            "distance_importance": distance_importance,
+            "size_small": size_small,
+            "size_medium": size_medium,
+            "size_large": size_large,
+            "size_importance": size_importance,
+            "want_public": want_public,
+            "want_private": want_private,
+            "control_importance": control_importance,
+            "religious": religious,
+            "religious_importance": religious_importance,
+            "want_hbcu": want_hbcu,
+            "hbcu_importance": hbcu_importance,
+            "want_womens": want_womens,
+            "womens_importance": womens_importance,
+            "max_price": max_price,
+            "price_importance": price_importance,
+            "outcomes_importance": outcomes_importance,
+            "income_bracket": income_bracket,
+            "home_state": home_state,
+            "home_zip": home_zip,
+            "first_gen": first_gen
+        });
+    }
+
     def remember -> None {
         try {
-            localStorage.setItem("jaccepted.intake", JSON.stringify({
-                "step": step,
-                "finished": finished,
-                "gpa_unweighted": gpa_unweighted,
-                "gpa_weighted": gpa_weighted,
-                "gpa_scale": gpa_scale,
-                "class_percentile": class_percentile,
-                "class_rank": class_rank,
-                "class_size": class_size,
-                "ap_count": ap_count,
-                "ib_count": ib_count,
-                "honors_count": honors_count,
-                "dual_count": dual_count,
-                "grad_year": grad_year,
-                "test_plan": test_plan,
-                "sat_total": sat_total,
-                "sat_reading": sat_reading,
-                "sat_math": sat_math,
-                "act_composite": act_composite,
-                "act_english": act_english,
-                "act_math": act_math,
-                "act_reading": act_reading,
-                "act_science": act_science,
-                "undecided": undecided,
-                "major1": major1,
-                "major2": major2,
-                "major3": major3,
-                "regions": regions,
-                "location_importance": location_importance,
-                "setting": setting,
-                "setting_importance": setting_importance,
-                "distance": distance,
-                "distance_importance": distance_importance,
-                "size_small": size_small,
-                "size_medium": size_medium,
-                "size_large": size_large,
-                "size_importance": size_importance,
-                "want_public": want_public,
-                "want_private": want_private,
-                "control_importance": control_importance,
-                "religious": religious,
-                "religious_importance": religious_importance,
-                "want_hbcu": want_hbcu,
-                "hbcu_importance": hbcu_importance,
-                "want_womens": want_womens,
-                "womens_importance": womens_importance,
-                "max_price": max_price,
-                "price_importance": price_importance,
-                "outcomes_importance": outcomes_importance,
-                "income_bracket": income_bracket,
-                "home_state": home_state,
-                "home_zip": home_zip,
-                "first_gen": first_gen
-            }));
+            localStorage.setItem("jaccepted.intake", draft_json());
         } except Exception {
             return;
         }
     }
 
-    def load_draft -> None {
-        raw = localStorage.getItem("jaccepted.intake");
-        if not raw {
+    async def sync_account -> None {
+        if not jacIsLoggedIn() {
             return;
         }
         try {
-            data = JSON.parse(raw);
+            await save_intake(draft_json());
+        } except Exception {
+            return;
+        }
+    }
+
+    def apply_draft(data: any) -> None {
+        try {
             loaded_step = take(data, "step", "0");
             if loaded_step not in ["0", "1", "2", "3", "4", "5"] {
                 loaded_step = "0";
@@ -257,6 +269,43 @@ def:pub IntakeForm -> JsxElement {
             home_state = take(data, "home_state", "");
             home_zip = take(data, "home_zip", "");
             first_gen = take(data, "first_gen", "");
+        } except Exception {
+            return;
+        }
+    }
+
+    async def load_draft -> None {
+        raw: str = "";
+        if jacIsLoggedIn() {
+            remote: dict[str, any] | None = None;
+            try {
+                remote = await load_intake();
+            } except Exception {
+                remote = None;
+            }
+            if remote and remote.get("data") {
+                raw = remote["data"] as str;
+                try {
+                    localStorage.setItem("jaccepted.intake", raw);
+                } except Exception {
+                }
+            }
+        }
+        if not raw {
+            try {
+                stored = localStorage.getItem("jaccepted.intake");
+                if stored {
+                    raw = stored as str;
+                }
+            } except Exception {
+                return;
+            }
+        }
+        if not raw {
+            return;
+        }
+        try {
+            apply_draft(JSON.parse(raw));
         } except Exception {
             return;
         }
@@ -338,7 +387,7 @@ def:pub IntakeForm -> JsxElement {
         remember();
     }
 
-    def next_step -> None {
+    async def next_step -> None {
         message = "";
         if step == "0" {
             message = current_academics_error();
@@ -357,26 +406,35 @@ def:pub IntakeForm -> JsxElement {
         if step == "5" {
             finished = "yes";
             remember();
+            await sync_account();
             navigate("/results");
             return;
         }
         step = str(int(step) + 1);
         remember();
+        await sync_account();
     }
 
-    def prev_step -> None {
+    async def prev_step -> None {
         error = "";
         if int(step) > 0 {
             step = str(int(step) - 1);
             remember();
+            await sync_account();
         }
     }
 
-    def reset_profile -> None {
+    async def reset_profile -> None {
         try {
             localStorage.removeItem("jaccepted.intake");
         } except Exception {
             error = "";
+        }
+        if jacIsLoggedIn() {
+            try {
+                await save_intake("");
+            } except Exception {
+            }
         }
         step = "0";
         finished = "no";
