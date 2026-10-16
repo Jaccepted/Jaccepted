@@ -7,6 +7,7 @@ and shows Reach, Target, and Likely colleges with the reasons for each.
 import from "@jac/runtime" { Link }
 import from .matching { CollegeMatch, MatchResult, Profile, match_colleges }
 import from .list_store { refresh_dismissed, refresh_saved, store_dismissed, store_saved }
+import from .components.nav { TopNav }
 import from .theme {
     BADGE,
     BANNER,
@@ -233,44 +234,43 @@ def:pub ResultsView -> JsxElement {
         load();
     }
 
-    <div style={PAGE}>
-        <header>
-            <p style={EYEBROW}>Your college list</p>
-            <h1 style={TITLE}>Jaccepted</h1>
-            <p style={LEDE}>
-                Colleges grouped by how your scores compare with students they admit. These are estimates, not admission predictions. Fit scores out of 100 reflect your preferences.
-            </p>
-        </header>
-        <main style={STACK}>
-            {if status == "loading" {
-                <p style={HINT} role="status">Matching colleges to your profile…</p>
-            }}
-            {if status == "missing" {
-                <p style={BANNER} role="alert">
-                    No profile found in this browser. <Link style={LINK} to="/intake">Fill out your profile</Link> first.
+    <>
+        <TopNav current="results" saved_count={len(saved)} />
+        <div style={PAGE}>
+            <header>
+                <p style={EYEBROW}>Your college list</p>
+                <h1 style={TITLE}>Jaccepted</h1>
+                <p style={LEDE}>
+                    Colleges grouped by how your scores compare with students they admit. These are estimates, not admission predictions. Fit scores out of 100 reflect your preferences.
                 </p>
-            }}
-            {if status == "error" {
-                <p style={BANNER} role="alert">{"Matching failed: " + message}</p>
-            }}
-            {if status == "ready" and result {
-                <>
-                    {len(dismissed) > 0 and <p style={HINT}>{str(len(dismissed)) + (" college" if len(dismissed) == 1 else " colleges") + " hidden as not interested."} <button type="button" style={LINK_BUTTON} onClick={lambda { dismissed = []; store_dismissed([]); }}>Show them again</button></p>}
-                    {for note in result.notes {
-                        <p key={note} style={HINT}>{note}</p>
-                    }}
-                    <p style={HINT}>
-                        {str(result.reach_count + result.target_count + result.likely_count) + " of " + str(result.considered) + " four-year colleges passed your must-haves. Shortlist marks a balanced starting list: 3 reach, 4 target, 3 likely."}
+            </header>
+            <main style={STACK}>
+                {if status == "loading" {
+                    <p style={HINT} role="status">Matching colleges to your profile…</p>
+                }}
+                {if status == "missing" {
+                    <p style={BANNER} role="alert">
+                        No profile found in this browser. <Link style={LINK} to="/intake">Fill out your profile</Link> first.
                     </p>
-                    <Bucket bucket="reach" title="Reach" blurb="Admit under 15% of applicants, or your scores are below their middle 50%." items={shown(result.reach)} total={result.reach_count} saved_ids={saved_ids()} onSave={toggle_save} onDismiss={dismiss} />
-                    <Bucket bucket="target" title="Target" blurb="Your scores sit in their middle 50%." items={shown(result.target)} total={result.target_count} saved_ids={saved_ids()} onSave={toggle_save} onDismiss={dismiss} />
-                    <Bucket bucket="likely" title="Likely" blurb="Your scores are above their middle 50% and they admit at least half of applicants." items={shown(result.likely)} total={result.likely_count} saved_ids={saved_ids()} onSave={toggle_save} onDismiss={dismiss} />
-                </>
-            }}
-            <div style={NAV}>
-                <Link style={LINK} to="/my-list">{"My List (" + str(len(saved)) + ")"}</Link>
-                <Link style={LINK} to="/intake">Edit your profile</Link>
-            </div>
-        </main>
-    </div>
+                }}
+                {if status == "error" {
+                    <p style={BANNER} role="alert">{"Matching failed: " + message}</p>
+                }}
+                {if status == "ready" and result {
+                    <>
+                        {len(dismissed) > 0 and <p style={HINT}>{str(len(dismissed)) + (" college" if len(dismissed) == 1 else " colleges") + " hidden as not interested."} <button type="button" style={LINK_BUTTON} onClick={lambda { dismissed = []; store_dismissed([]); }}>Show them again</button></p>}
+                        {for note in result.notes {
+                            <p key={note} style={HINT}>{note}</p>
+                        }}
+                        <p style={HINT}>
+                            {str(result.reach_count + result.target_count + result.likely_count) + " of " + str(result.considered) + " four-year colleges passed your must-haves. Shortlist marks a balanced starting list: 3 reach, 4 target, 3 likely."}
+                        </p>
+                        <Bucket bucket="reach" title="Reach" blurb="Admit under 15% of applicants, or your scores are below their middle 50%." items={shown(result.reach)} total={result.reach_count} saved_ids={saved_ids()} onSave={toggle_save} onDismiss={dismiss} />
+                        <Bucket bucket="target" title="Target" blurb="Your scores sit in their middle 50%." items={shown(result.target)} total={result.target_count} saved_ids={saved_ids()} onSave={toggle_save} onDismiss={dismiss} />
+                        <Bucket bucket="likely" title="Likely" blurb="Your scores are above their middle 50% and they admit at least half of applicants." items={shown(result.likely)} total={result.likely_count} saved_ids={saved_ids()} onSave={toggle_save} onDismiss={dismiss} />
+                    </>
+                }}
+            </main>
+        </div>
+    </>
 }

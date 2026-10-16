@@ -2,6 +2,9 @@
 
 Prefixes follow CIP 2020. A college matches when one of its bachelor's
 programs starts with a listed prefix, for example 11.0701 for Computer Science.
+
+Few colleges award pre-professional degrees, so a Pre- track also matches
+the majors students usually take on that track, such as Biology for Pre-Med.
 """
 
 glob:pub MAJORS: list[list[any]] = [
@@ -46,7 +49,13 @@ glob:pub MAJORS: list[list[any]] = [
     ["Philosophy", ["38.01"]],
     ["Physics", ["40.08"]],
     ["Political Science", ["45.10"]],
-    ["Pre-Med", ["51.11", "26.01"]],
+    ["Pre-Dental", ["51.1101", "26.01", "26.02", "40.05"]],
+    ["Pre-Law", ["22.00", "45.10", "38.01", "54.01", "23.01"]],
+    ["Pre-Med", ["51.11", "26.01", "26.02", "40.05"]],
+    ["Pre-Pharmacy", ["51.1103", "26.01", "26.02", "40.05"]],
+    ["Pre-Physical Therapy", ["51.1109", "31.05", "26.01"]],
+    ["Pre-Physician Assistant", ["51.1111", "26.01", "51.00"]],
+    ["Pre-Veterinary", ["51.1104", "01.09", "26.01"]],
     ["Psychology", ["42."]],
     ["Public Health", ["51.22"]],
     ["Social Work", ["44.07"]],
@@ -98,7 +107,13 @@ glob:pub MAJOR_NAMES: list[str] = [
     "Philosophy",
     "Physics",
     "Political Science",
+    "Pre-Dental",
+    "Pre-Law",
     "Pre-Med",
+    "Pre-Pharmacy",
+    "Pre-Physical Therapy",
+    "Pre-Physician Assistant",
+    "Pre-Veterinary",
     "Psychology",
     "Public Health",
     "Social Work",
