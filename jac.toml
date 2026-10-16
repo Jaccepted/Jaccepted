@@ -28,6 +28,9 @@ watchdog = ">=3.0.0"
 
 [client]
 
+[client.routing]
+auth_redirect = "/login"
+
 [client.app_meta_data]
 title = "Jaccepted"
 description = "Enter your academic profile and college preferences."

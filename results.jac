@@ -6,7 +6,7 @@ and shows Reach, Target, and Likely colleges with the reasons for each.
 
 import from "@jac/runtime" { Link }
 import from .matching { CollegeMatch, MatchResult, Profile, match_colleges }
-import from .list_store { load_dismissed, load_saved, store_dismissed, store_saved }
+import from .list_store { refresh_dismissed, refresh_saved, store_dismissed, store_saved }
 import from .theme {
     BADGE,
     BANNER,
@@ -207,8 +207,8 @@ def:pub ResultsView -> JsxElement {
     }
 
     async def load -> None {
-        saved = load_saved();
-        dismissed = load_dismissed();
+        saved = await refresh_saved();
+        dismissed = await refresh_dismissed();
         raw = None;
         try {
             raw = localStorage.getItem("jaccepted.intake");

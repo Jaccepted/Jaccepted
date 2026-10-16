@@ -23,6 +23,7 @@ def:pub TextField(
     hint: str = "",
     placeholder: str = "",
     input_mode: str = "text",
+    input_type: str = "text",
     disabled: bool = False,
     suggestions: list[str] = []
 ) -> JsxElement {
@@ -42,7 +43,7 @@ def:pub TextField(
         <input
             id={id}
             name={id}
-            type="text"
+            type={input_type}
             inputMode={input_mode}
             value={value}
             placeholder={placeholder}
