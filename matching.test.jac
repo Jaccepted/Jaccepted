@@ -79,3 +79,19 @@ test "matching returns in under two seconds" {
     match_profile(strong_profile());
     assert time.perf_counter() - started < 2.0;
 }
+
+test "home state boosts in-state public schools" {
+    profile = Profile(
+        gpa_unweighted="3.4",
+        gpa_scale="4.0",
+        test_plan="none",
+        undecided="yes",
+        want_public="yes",
+        want_private="yes",
+        home_state="MI"
+    );
+    result = match_profile(profile);
+    schools = [item for item in all_matches(result) if item.name == "Central Michigan University"];
+    assert len(schools) == 1;
+    assert any("home state" in reason.lower() for reason in schools[0].reasons);
+}

@@ -75,6 +75,7 @@ def profile_from(data: any) -> Profile {
         price_importance=saved(data, "price_importance", "ignore"),
         outcomes_importance=saved(data, "outcomes_importance", "ignore"),
         income_bracket=saved(data, "income_bracket", ""),
+        home_state=saved(data, "home_state", ""),
         home_zip=saved(data, "home_zip", "")
     );
 }

@@ -66,6 +66,7 @@ obj Profile {
         price_importance: str = "ignore",
         outcomes_importance: str = "ignore",
         income_bracket: str = "",
+        home_state: str = "",
         home_zip: str = "";
 }
 
@@ -511,6 +512,12 @@ def fit_for(
             total = total + w;
             reasons.append("In the " + college["region"] + ".");
         }
+    }
+    home_state = profile.home_state.strip();
+    if home_state and str(college["state"]).strip() == home_state and str(college["control"]).startswith("public") {
+        weights = weights + 1.0;
+        total = total + 1.0;
+        reasons.append("Public college in your home state.");
     }
     w = weight(profile.setting_importance);
     if w and profile.setting {
