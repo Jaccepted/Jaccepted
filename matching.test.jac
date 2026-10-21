@@ -95,3 +95,40 @@ test "home state boosts in-state public schools" {
     assert len(schools) == 1;
     assert any("home state" in reason.lower() for reason in schools[0].reasons);
 }
+
+test "a realistic student profile returns a non-empty, sensible list" {
+    profile = Profile(
+        gpa_unweighted="3.7",
+        gpa_scale="4.0",
+        test_plan="sat",
+        sat_total="1350",
+        undecided="no",
+        major1="Computer Science",
+        regions="Midwest,South",
+        location_importance="nice",
+        setting="suburban",
+        setting_importance="nice",
+        distance="300",
+        distance_importance="nice",
+        size_small="yes",
+        size_medium="yes",
+        size_large="yes",
+        size_importance="nice",
+        want_public="yes",
+        want_private="no",
+        control_importance="must",
+        max_price="25000",
+        price_importance="must",
+        income_bracket="48001-75000",
+        home_state="MI",
+        home_zip="48104"
+    );
+    result = match_profile(profile);
+    matches = all_matches(result);
+    assert len(matches) > 0;
+    assert len(result.reach) >= 0;
+    assert len(result.target) >= 0;
+    assert len(result.likely) >= 0;
+    assert any(item.name == "Central Michigan University" for item in matches);
+    assert any(item.name == "Michigan State University" for item in matches) or any(item.name == "University of Michigan" for item in matches);
+}
