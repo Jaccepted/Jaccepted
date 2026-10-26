@@ -44,7 +44,7 @@ def saved(data: any, key: str, fallback: str) -> str {
     return fallback;
 }
 
-def profile_from(data: any) -> Profile {
+def:pub profile_from(data: any) -> Profile {
     return Profile(
         gpa_unweighted=saved(data, "gpa_unweighted", ""),
         gpa_scale=saved(data, "gpa_scale", "4.0"),
@@ -97,7 +97,7 @@ def price_text(price: int | None) -> str {
     return "~" + dollars(price) + "/yr net";
 }
 
-def dollars(amount: int) -> str {
+def:pub dollars(amount: int) -> str {
     digits = str(amount);
     grouped = "";
     while len(digits) > 3 {
@@ -117,7 +117,7 @@ def ResultCard(
         <div style={RESULT_HEAD}>
             <div>
                 <h3 style={RESULT_NAME}>
-                    {item.name}
+                    <Link style={LINK} to={"/college/" + item.unitid}>{item.name}</Link>
                     {item.shortlist and <span style={BADGE}>Shortlist</span>}
                 </h3>
                 <p style={FACTS}>

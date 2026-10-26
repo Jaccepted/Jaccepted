@@ -230,3 +230,46 @@ test "sorting by distance without a ZIP explains why" {
     result = match_profile(Profile(gpa_unweighted="3.5"), "", "distance");
     assert any("ZIP" in note for note in result.notes);
 }
+
+test "net price uses the bracket, then the overall price, then the bracket mean" {
+    college = {
+        "net_price": 20000,
+        "net_price_0_30k": 5000,
+        "net_price_30_48k": None,
+        "net_price_48_75k": 15000,
+        "net_price_75_110k": None,
+        "net_price_110k_plus": None
+    };
+    assert net_price_for(college, "0-30000") == 5000.0;
+    assert net_price_for(college, "") == 20000.0;
+    # Bracket asked for has no data: fall back to the overall price.
+    assert net_price_for(college, "30001-48000") == 20000.0;
+    college["net_price"] = None;
+    assert net_price_for(college, "") == 10000.0;
+    college["net_price_0_30k"] = None;
+    college["net_price_48_75k"] = None;
+    assert net_price_for(college, "") is None;
+}
+
+test "most colleges now have a net price without an income bracket" {
+    priced = [row for row in COLLEGES if net_price_for(row, "") is not None];
+    assert len(priced) > 0.9 * len(COLLEGES);
+}
+
+test "college detail scores a college like the results list" {
+    profile = Profile(gpa_unweighted="3.9", test_plan="sat", sat_total="1450", major1="Computer Science", home_zip="48104");
+    detail = college_detail("170976", profile);
+    assert detail.found;
+    assert detail.college["name"] == "University of Michigan-Ann Arbor";
+    listed = [item for item in all_matches(match_profile(profile)) if item.unitid == "170976"];
+    if listed {
+        assert detail.bucket == listed[0].bucket;
+        assert detail.fit == listed[0].fit;
+    }
+    assert detail.net_price is not None;
+    assert detail.program_count > 0;
+}
+
+test "college detail reports an unknown college as not found" {
+    assert not college_detail("not-a-unitid", Profile()).found;
+}

@@ -98,6 +98,19 @@ obj MatchResult {
         notes: list[str] = [];
 }
 
+"""Everything the college page shows: stats, the student's standing, and why it fits."""
+obj CollegeDetail {
+    has found: bool = False,
+        college: dict[str, any] = {},
+        cds: dict[str, any] = {},
+        bucket: str = "",
+        fit: int = 0,
+        reasons: list[str] = [],
+        net_price: int | None = None,
+        miles: int | None = None,
+        program_count: int = 0;
+}
+
 def read_jsonl(name: str) -> list[dict[str, any]] {
     rows: list[dict[str, any]] = [];
     with open(os.path.join(DATA_DIR, name)) as handle {
@@ -238,6 +251,11 @@ def net_price_for(college: dict[str, any], bracket: str) -> float | None {
     }
     if college["net_price"] is not None {
         return float(college["net_price"]);
+    }
+    # Many colleges publish prices only by income bracket; use their mean.
+    known = [float(college[column]) for column in PRICE_KEYS.values() if college[column] is not None];
+    if known {
+        return sum(known) / len(known);
     }
     return None;
 }
@@ -773,4 +791,51 @@ sort is one of fit (default), admit, price, distance, or name.
 """
 def:pub match_colleges(profile: Profile, query: str = "", sort: str = "fit") -> MatchResult {
     return match_profile(profile, query, sort);
+}
+
+glob DETAIL_FIELDS: list[str] = [
+    "unitid", "name", "city", "state", "region", "setting", "control", "website",
+    "hbcu", "womens_college", "religiously_affiliated", "open_admission",
+    "undergrad_enrollment", "size_band", "applicants", "admitted", "admit_rate",
+    "yield_rate", "sat_reading_p25", "sat_reading_p75", "sat_math_p25", "sat_math_p75",
+    "act_p25", "act_p75", "sat_submit_rate", "act_submit_rate",
+    "tuition_in_state", "tuition_out_of_state", "room_and_board", "application_fee",
+    "net_price", "net_price_0_30k", "net_price_30_48k", "net_price_48_75k",
+    "net_price_75_110k", "net_price_110k_plus", "grad_rate_4yr", "grad_rate_6yr",
+    "retention_rate", "earnings_6yr", "earnings_10yr", "median_debt", "pell_share",
+    "first_gen_share"
+];
+
+glob DETAIL_CDS_FIELDS: list[str] = [
+    "cds_year", "gpa_average", "ed_offered", "ed_admit_rate", "ea_offered",
+    "in_state_admit_rate", "out_of_state_admit_rate", "sat_composite_p25",
+    "sat_composite_p75", "act_p25", "act_p75"
+];
+
+"""Details for one college, scored against the student's profile like the results list."""
+def:pub college_detail(unitid: str, profile: Profile) -> CollegeDetail {
+    matches = [row for row in COLLEGES if str(row["unitid"]) == unitid];
+    if not matches {
+        return CollegeDetail();
+    }
+    college = matches[0];
+    majors = chosen_majors(profile);
+    home: list[float] | None = None;
+    zip_code = profile.home_zip.strip()[:5];
+    if zip_code {
+        home = ZIPS.get(zip_code, None);
+    }
+    scored = match_one(profile, college, majors, home);
+    cds = CDS.get(unitid, None);
+    return CollegeDetail(
+        found=True,
+        college={field: college[field] for field in DETAIL_FIELDS},
+        cds=({field: cds[field] for field in DETAIL_CDS_FIELDS} if cds is not None else {}),
+        bucket=scored.bucket,
+        fit=scored.fit,
+        reasons=scored.reasons,
+        net_price=scored.net_price,
+        miles=scored.miles,
+        program_count=len(PROGRAMS.get(unitid, []))
+    );
 }
