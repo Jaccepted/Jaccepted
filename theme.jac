@@ -534,3 +534,61 @@ glob:pub LINK_BUTTON: dict[str, str] = {
     "textDecoration": "underline",
     "cursor": "pointer"
 };
+
+glob:pub DETAIL_GRID: dict[str, str] = {
+    "display": "grid",
+    "gridTemplateColumns": "repeat(auto-fit, minmax(17rem, 1fr))",
+    "gap": "1rem",
+    "alignItems": "start"
+};
+
+glob:pub STAT_ROW: dict[str, str] = {
+    "display": "flex",
+    "justifyContent": "space-between",
+    "gap": "1rem",
+    "padding": "0.3rem 0",
+    "borderBottom": "1px solid #efe9db",
+    "fontSize": "0.92rem"
+};
+
+glob:pub STAT_LABEL: dict[str, str] = {
+    "color": "#5c6570"
+};
+
+glob:pub STAT_VALUE: dict[str, str] = {
+    "fontWeight": "650",
+    "textAlign": "right"
+};
+
+glob:pub RANGE_TRACK: dict[str, str] = {
+    "position": "relative",
+    "height": "10px",
+    "margin": "1.4rem 0 0.7rem",
+    "borderRadius": "999px",
+    "background": "#efe9db"
+};
+
+def:pub range_fill(low_pct: float, high_pct: float) -> dict[str, str] {
+    return {
+        "position": "absolute",
+        "top": "0",
+        "bottom": "0",
+        "left": str(low_pct) + "%",
+        "width": str(max(high_pct - low_pct, 1.0)) + "%",
+        "borderRadius": "999px",
+        "background": "#0f5c4c",
+        "opacity": "0.55"
+    };
+}
+
+def:pub range_marker(pct: float) -> dict[str, str] {
+    return {
+        "position": "absolute",
+        "top": "-6px",
+        "left": "calc(" + str(pct) + "% - 3px)",
+        "width": "6px",
+        "height": "22px",
+        "borderRadius": "3px",
+        "background": "#8e2432"
+    };
+}
