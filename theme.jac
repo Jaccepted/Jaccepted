@@ -534,3 +534,32 @@ glob:pub LINK_BUTTON: dict[str, str] = {
     "textDecoration": "underline",
     "cursor": "pointer"
 };
+
+glob:pub TOOLBAR: dict[str, str] = {
+    "display": "flex",
+    "flexWrap": "wrap",
+    "alignItems": "flex-end",
+    "gap": "0.6rem",
+    "margin": "0 0 0.4rem"
+};
+
+glob:pub TOOL_LABEL: dict[str, str] = {
+    "display": "flex",
+    "flexDirection": "column",
+    "gap": "0.25rem",
+    "fontWeight": "650",
+    "fontSize": "0.9rem"
+};
+
+glob:pub TOOL_INPUT: dict[str, str] = {
+    "minHeight": "48px",
+    "minWidth": "12rem",
+    "padding": "0.55rem 0.7rem",
+    "border": "1px solid #d8d0c2",
+    "borderRadius": "10px",
+    "background": "white",
+    "color": "#1b2430",
+    "font": "inherit",
+    "fontWeight": "400",
+    "boxSizing": "border-box"
+};

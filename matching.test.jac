@@ -138,3 +138,95 @@ test "computer science also matches colleges that file it as general computer an
     assert offers("170976", [str(prefix) for prefix in chosen_majors(Profile(major1="Computer Science"))[0][1]]);
     assert must_have_failure(Profile(major1="Computer Science"), michigan, chosen_majors(Profile(major1="Computer Science")), None) == "";
 }
+
+def fake(unitid: str, name: str, fit: int, admit: float | None, price: int | None, miles: int | None) -> CollegeMatch {
+    return CollegeMatch(
+        unitid=unitid, name=name, city="Town", state="MI", bucket="target",
+        fit=fit, admit_rate=admit, net_price=price, miles=miles
+    );
+}
+
+test "sorting by fit is the default, best first" {
+    items = [fake("a", "A", 60, 0.5, 1, 1), fake("b", "B", 90, 0.5, 1, 1), fake("c", "C", 75, 0.5, 1, 1)];
+    assert [item.unitid for item in ranked(items, "target", "fit")] == ["b", "c", "a"];
+}
+
+test "sorting by admit rate, price, and distance goes low to high with missing values last" {
+    items = [
+        fake("a", "A", 60, 0.50, 30000, 200),
+        fake("b", "B", 90, None, None, None),
+        fake("c", "C", 75, 0.20, 10000, 50)
+    ];
+    assert [item.unitid for item in ranked(items, "target", "admit")] == ["c", "a", "b"];
+    assert [item.unitid for item in ranked(items, "target", "price")] == ["c", "a", "b"];
+    assert [item.unitid for item in ranked(items, "target", "distance")] == ["c", "a", "b"];
+}
+
+test "sorting by name is alphabetical" {
+    items = [fake("z", "Zeta", 90, 0.5, 1, 1), fake("a", "Alpha", 60, 0.5, 1, 1)];
+    assert [item.unitid for item in ranked(items, "target", "name")] == ["a", "z"];
+}
+
+test "the shortlist is the best fits no matter how the list is sorted" {
+    items = [fake(str(n), "College " + str(n), 50 + n, 0.9 - n * 0.01, None, None) for n in range(8)];
+    by_price = ranked(items, "target", "name");
+    flagged = sorted([item.unitid for item in by_price if item.shortlist]);
+    # SHORTLIST gives target 4 slots: the four highest fits are ids 7, 6, 5, 4.
+    assert flagged == ["4", "5", "6", "7"];
+}
+
+test "an unknown sort falls back to best fit" {
+    items = [fake("a", "A", 60, 0.5, 1, 1), fake("b", "B", 90, 0.5, 1, 1)];
+    assert [item.unitid for item in ranked(items, "target", "nonsense")] == ["b", "a"];
+}
+
+test "a search matches name, city, or state abbreviation" {
+    item = CollegeMatch(unitid="1", name="University of Michigan-Ann Arbor", city="Ann Arbor", state="MI", bucket="reach", fit=50);
+    assert matches_query(item, "");
+    assert matches_query(item, "  michigan ");
+    assert matches_query(item, "ann arbor");
+    assert matches_query(item, "mi");
+    assert not matches_query(item, "ohio");
+    # A state needs its full abbreviation, so "m" does not match Michigan by state alone.
+    plain = CollegeMatch(unitid="2", name="Alpha", city="Town", state="MI", bucket="reach", fit=50);
+    assert matches_query(plain, "MI");
+    assert not matches_query(plain, "m");
+}
+
+test "a state code searches by state only, not names that contain those letters" {
+    hamilton = CollegeMatch(unitid="3", name="Hamilton College", city="Clinton", state="NY", bucket="reach", fit=50);
+    assert not matches_query(hamilton, "MI");
+    assert matches_query(hamilton, "NY");
+    assert matches_query(hamilton, "hamil");
+    # Longer searches are still name and city searches.
+    assert matches_query(hamilton, "clint");
+}
+
+test "filtering by state narrows the real results and the counts" {
+    everything = match_profile(strong_profile());
+    in_state = match_profile(strong_profile(), "MI", "fit");
+    assert in_state.reach_count + in_state.target_count + in_state.likely_count > 0;
+    assert in_state.reach_count + in_state.target_count + in_state.likely_count < everything.reach_count + everything.target_count + everything.likely_count;
+    for item in all_matches(in_state) {
+        assert item.state == "MI";
+    }
+}
+
+test "a search with no matches returns empty buckets, not an error" {
+    result = match_profile(strong_profile(), "zzzz-no-such-college", "fit");
+    assert all_matches(result) == [];
+    assert result.reach_count == 0 and result.target_count == 0 and result.likely_count == 0;
+}
+
+test "sorting real results by price is ascending in every bucket" {
+    result = match_profile(strong_profile(), "", "price");
+    for bucket in [result.reach, result.target, result.likely] {
+        prices = [item.net_price for item in bucket if item.net_price is not None];
+        assert prices == sorted(prices);
+    }
+}
+
+test "sorting by distance without a ZIP explains why" {
+    result = match_profile(Profile(gpa_unweighted="3.5"), "", "distance");
+    assert any("ZIP" in note for note in result.notes);
+}

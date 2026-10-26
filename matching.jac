@@ -674,17 +674,56 @@ def match_one(
     );
 }
 
-def ranked(matches: list[CollegeMatch], bucket: str) -> list[CollegeMatch] {
-    group = [item for item in matches if item.bucket == bucket];
-    group.sort(key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
-    top = group[:SHOW_PER_BUCKET];
-    for (index, item) in enumerate(top) {
-        item.shortlist = index < SHORTLIST[bucket];
+glob STATE_CODES: list[str] = sorted({str(row["state"]).lower() for row in COLLEGES if row["state"]});
+
+"""Whether a college matches a search of its name, city, or state abbreviation.
+
+A two-letter search that is a state code ("MI") means that state only, so it
+does not also match names that merely contain those letters (Hamilton).
+"""
+def matches_query(item: CollegeMatch, query: str) -> bool {
+    needle = query.strip().lower();
+    if not needle {
+        return True;
     }
-    return top;
+    if len(needle) == 2 and needle in STATE_CODES {
+        return needle == item.state.lower();
+    }
+    return needle in item.name.lower() or needle in item.city.lower();
 }
 
-def match_profile(profile: Profile) -> MatchResult {
+"""Sort key for the chosen order. Colleges missing the value sort last."""
+def sort_key(item: CollegeMatch, sort: str) -> tuple[int, float, str] {
+    value: float | None = None;
+    if sort == "admit" {
+        value = item.admit_rate;
+    } elif sort == "price" {
+        value = item.net_price;
+    } elif sort == "distance" {
+        value = item.miles;
+    } elif sort == "name" {
+        value = 0.0;
+    } else {
+        value = -float(item.fit);
+    }
+    if value is None {
+        return (1, 0.0, item.name);
+    }
+    return (0, float(value), item.name);
+}
+
+def ranked(matches: list[CollegeMatch], bucket: str, sort: str) -> list[CollegeMatch] {
+    group = [item for item in matches if item.bucket == bucket];
+    # The shortlist is always the best fits, whatever order is shown.
+    group.sort(key=lambda (item: CollegeMatch) -> tuple[int, float, str] { return sort_key(item, "fit"); });
+    for (index, item) in enumerate(group) {
+        item.shortlist = index < SHORTLIST[bucket];
+    }
+    group.sort(key=lambda (item: CollegeMatch) -> tuple[int, float, str] { return sort_key(item, sort); });
+    return group[:SHOW_PER_BUCKET];
+}
+
+def match_profile(profile: Profile, query: str = "", sort: str = "fit") -> MatchResult {
     majors = chosen_majors(profile);
     home: list[float] | None = None;
     zip_code = profile.home_zip.strip()[:5];
@@ -695,6 +734,9 @@ def match_profile(profile: Profile) -> MatchResult {
     if zip_code and home is None {
         notes.append("We could not find ZIP " + zip_code + ", so distance is not used.");
     }
+    if sort == "distance" and home is None {
+        notes.append("Add your ZIP code to your profile to sort by distance.");
+    }
     named = [raw.strip() for raw in [profile.major1, profile.major2, profile.major3] if raw.strip()];
     if profile.undecided != "yes" and len(named) > len(majors) {
         notes.append("Majors that are not on the suggested list are not used for matching yet.");
@@ -704,11 +746,14 @@ def match_profile(profile: Profile) -> MatchResult {
         if must_have_failure(profile, college, majors, home) {
             continue;
         }
-        matches.append(match_one(profile, college, majors, home));
+        item = match_one(profile, college, majors, home);
+        if matches_query(item, query) {
+            matches.append(item);
+        }
     }
-    reach = ranked(matches, "reach");
-    target = ranked(matches, "target");
-    likely = ranked(matches, "likely");
+    reach = ranked(matches, "reach", sort);
+    target = ranked(matches, "target", sort);
+    likely = ranked(matches, "likely", sort);
     return MatchResult(
         reach=reach,
         target=target,
@@ -721,7 +766,11 @@ def match_profile(profile: Profile) -> MatchResult {
     );
 }
 
-"""Run matching for a submitted intake profile."""
-def:pub match_colleges(profile: Profile) -> MatchResult {
-    return match_profile(profile);
+"""Run matching for a submitted intake profile.
+
+query narrows results to colleges whose name, city, or state matches it.
+sort is one of fit (default), admit, price, distance, or name.
+"""
+def:pub match_colleges(profile: Profile, query: str = "", sort: str = "fit") -> MatchResult {
+    return match_profile(profile, query, sort);
 }
