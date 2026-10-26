@@ -130,5 +130,11 @@ test "a realistic student profile returns a non-empty, sensible list" {
     assert len(result.target) >= 0;
     assert len(result.likely) >= 0;
     assert any(item.name == "Central Michigan University" for item in matches);
-    assert any(item.name == "Michigan State University" for item in matches) or any(item.name == "University of Michigan" for item in matches);
+    assert any(item.name == "Michigan State University" for item in matches) or any(item.name == "University of Michigan-Ann Arbor" for item in matches);
+}
+
+test "computer science also matches colleges that file it as general computer and information sciences" {
+    michigan = [row for row in COLLEGES if row["unitid"] == "170976"][0];
+    assert offers("170976", [str(prefix) for prefix in chosen_majors(Profile(major1="Computer Science"))[0][1]]);
+    assert must_have_failure(Profile(major1="Computer Science"), michigan, chosen_majors(Profile(major1="Computer Science")), None) == "";
 }

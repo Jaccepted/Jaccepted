@@ -22,7 +22,7 @@ glob:pub MAJORS: list[list[any]] = [
     ["Civil Engineering", ["14.08"]],
     ["Communications", ["09.01"]],
     ["Computer Engineering", ["14.09"]],
-    ["Computer Science", ["11.07"]],
+    ["Computer Science", ["11.01", "11.07"]],
     ["Criminal Justice", ["43.01"]],
     ["Cybersecurity", ["11.10"]],
     ["Data Science", ["30.70", "30.71"]],
