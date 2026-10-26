@@ -30,6 +30,9 @@ import from .theme {
     RESULT_NAME,
     STACK,
     TITLE,
+    TOOLBAR,
+    TOOL_INPUT,
+    TOOL_LABEL,
     bucket_look
 }
 
@@ -41,7 +44,7 @@ def saved(data: any, key: str, fallback: str) -> str {
     return fallback;
 }
 
-def profile_from(data: any) -> Profile {
+def:pub profile_from(data: any) -> Profile {
     return Profile(
         gpa_unweighted=saved(data, "gpa_unweighted", ""),
         gpa_scale=saved(data, "gpa_scale", "4.0"),
@@ -94,7 +97,7 @@ def price_text(price: int | None) -> str {
     return "~" + dollars(price) + "/yr net";
 }
 
-def dollars(amount: int) -> str {
+def:pub dollars(amount: int) -> str {
     digits = str(amount);
     grouped = "";
     while len(digits) > 3 {
@@ -114,7 +117,7 @@ def ResultCard(
         <div style={RESULT_HEAD}>
             <div>
                 <h3 style={RESULT_NAME}>
-                    {item.name}
+                    <Link style={LINK} to={"/college/" + item.unitid}>{item.name}</Link>
                     {item.shortlist and <span style={BADGE}>Shortlist</span>}
                 </h3>
                 <p style={FACTS}>
@@ -173,7 +176,12 @@ def:pub ResultsView -> JsxElement {
         message: str = "",
         result: MatchResult | None = None,
         saved: list[dict[str, any]] = [],
-        dismissed: list[str] = [];
+        dismissed: list[str] = [],
+        profile_data: Profile | None = None,
+        query: str = "",
+        applied_query: str = "",
+        sort_mode: str = "fit",
+        busy: bool = False;
 
     def saved_ids -> list[str] {
         return [kept["unitid"] as str for kept in saved];
@@ -208,6 +216,21 @@ def:pub ResultsView -> JsxElement {
         return [item for item in items if item.unitid not in dismissed];
     }
 
+    async def run_match -> None {
+        if profile_data is None {
+            return;
+        }
+        busy = True;
+        try {
+            result = await match_colleges(profile_data, applied_query, sort_mode);
+            status = "ready";
+        } except Exception as err {
+            message = str(err);
+            status = "error";
+        }
+        busy = False;
+    }
+
     async def load -> None {
         saved = await refresh_saved();
         dismissed = await refresh_dismissed();
@@ -222,13 +245,30 @@ def:pub ResultsView -> JsxElement {
             return;
         }
         try {
-            data = JSON.parse(raw);
-            result = await match_colleges(profile_from(data));
-            status = "ready";
+            profile_data = profile_from(JSON.parse(raw));
         } except Exception as err {
             message = str(err);
             status = "error";
+            return;
         }
+        await run_match();
+    }
+
+    def on_search(e: any) -> None {
+        e.preventDefault();
+        applied_query = query.strip();
+        run_match();
+    }
+
+    def on_sort(e: any) -> None {
+        sort_mode = e.target.value;
+        run_match();
+    }
+
+    def clear_search -> None {
+        query = "";
+        applied_query = "";
+        run_match();
     }
 
     can with entry {
@@ -259,6 +299,32 @@ def:pub ResultsView -> JsxElement {
                 }}
                 {if status == "ready" and result {
                     <>
+                        <form style={TOOLBAR} role="search" onSubmit={on_search}>
+                            <label style={TOOL_LABEL}>
+                                Search
+                                <input
+                                    type="search"
+                                    style={TOOL_INPUT}
+                                    value={query}
+                                    placeholder="Name, city, or state (MI)"
+                                    aria-label="Search colleges by name, city, or state"
+                                    onChange={lambda (e: any) { query = e.target.value; }}
+                                />
+                            </label>
+                            <button type="submit" style={PRIMARY} disabled={busy}>Search</button>
+                            {(applied_query != "") and <button type="button" style={SECONDARY} onClick={lambda { clear_search(); }}>Clear</button>}
+                            <label style={TOOL_LABEL}>
+                                Sort by
+                                <select style={TOOL_INPUT} value={sort_mode} aria-label="Sort colleges" onChange={on_sort}>
+                                    <option value="fit">Best fit</option>
+                                    <option value="admit">Lowest admit rate</option>
+                                    <option value="price">Lowest net price</option>
+                                    <option value="distance">Closest to home</option>
+                                    <option value="name">Name (A to Z)</option>
+                                </select>
+                            </label>
+                        </form>
+                        {applied_query != "" and <p style={HINT}>{"Showing colleges matching \"" + applied_query + "\"."}</p>}
                         {len(dismissed) > 0 and <p style={HINT}>{str(len(dismissed)) + (" college" if len(dismissed) == 1 else " colleges") + " hidden as not interested."} <button type="button" style={LINK_BUTTON} onClick={lambda { dismissed = []; store_dismissed([]); }}>Show them again</button></p>}
                         {for note in result.notes {
                             <p key={note} style={HINT}>{note}</p>
