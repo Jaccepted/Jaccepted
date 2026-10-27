@@ -10,6 +10,7 @@ import re;
 import uuid;
 import from jaclang.byllm.lib { Model }
 import from .matching { COLLEGES, CollegeMatch, Profile, money, passing_colleges, percent }
+import from .ai_quota { LIMIT_MESSAGE, use_ai_request }
 
 # The advisor's model. Tests swap in a MockLLM; JACCEPTED_MODEL overrides the
 # default without a code change. The API key comes from ANTHROPIC_API_KEY.
@@ -302,7 +303,7 @@ def grounded(plan: AdvisorPlan, matches: list[CollegeMatch]) -> AdvisorResult {
     );
 }
 
-"""Ask the advisor for a college list. Signed-in students only, to keep AI costs in check.
+"""Ask the advisor for a college list. Signed-in students only, with a daily cap, to keep AI costs in check.
 
 The parameter is not called `request`: that name is taken by the web request on the server.
 """
@@ -321,6 +322,10 @@ def:protect ask_advisor(question: str, profile: Profile, current_list: list[str]
         keep = [unitid for unitid in current_list if unitid in known][:MAX_PICKS];
         if keep {
             log_step(request_id, "Started from your current list of " + str(len(keep)) + (" college." if len(keep) == 1 else " colleges."));
+        }
+        # Counted only once the model is about to run, so refused requests are free.
+        if not use_ai_request() {
+            return AdvisorResult(ok=False, message=LIMIT_MESSAGE);
         }
         result = grounded(Advisor(request_id=request_id, current_list=keep).plan(text), SESSIONS[request_id]);
         result.steps = STEPS.get(request_id, []);
