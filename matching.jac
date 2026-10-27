@@ -135,10 +135,25 @@ def load_programs -> dict[str, list[str]] {
     return by_unit;
 }
 
+# Rates in the Common Data Set feed. A few schools report impossible values
+# (Duke's ED rate as 125%, Eastern Michigan's in-state rate as 21,440%).
+glob CDS_RATES: list[str] = ["admit_rate", "yield_rate", "ed_admit_rate", "in_state_admit_rate", "out_of_state_admit_rate"];
+
+"""The row with any rate outside 0-100% cleared, so it shows as not published."""
+def clean_rates(row: dict[str, any]) -> dict[str, any] {
+    for field in CDS_RATES {
+        value = row.get(field, None);
+        if value is not None and (value < 0 or value > 1) {
+            row[field] = None;
+        }
+    }
+    return row;
+}
+
 def load_cds -> dict[str, dict[str, any]] {
     by_unit: dict[str, dict[str, any]] = {};
     for row in read_jsonl("cds.jsonl") {
-        by_unit[str(row["unitid"])] = row;
+        by_unit[str(row["unitid"])] = clean_rates(row);
     }
     return by_unit;
 }

@@ -273,3 +273,20 @@ test "college detail scores a college like the results list" {
 test "college detail reports an unknown college as not found" {
     assert not college_detail("not-a-unitid", Profile()).found;
 }
+
+test "impossible Common Data Set rates are dropped, real ones kept" {
+    row = clean_rates({"admit_rate": 0.42, "ed_admit_rate": 1.25, "in_state_admit_rate": 214.4, "out_of_state_admit_rate": -0.1, "yield_rate": None});
+    assert row["admit_rate"] == 0.42;
+    assert row["ed_admit_rate"] is None;
+    assert row["in_state_admit_rate"] is None;
+    assert row["out_of_state_admit_rate"] is None;
+    assert row["yield_rate"] is None;
+}
+
+test "no loaded Common Data Set rate is above 100%" {
+    for row in CDS.values() {
+        for field in CDS_RATES {
+            assert row[field] is None or (row[field] >= 0 and row[field] <= 1);
+        }
+    }
+}
