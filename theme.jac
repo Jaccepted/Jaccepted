@@ -2,9 +2,75 @@
 
 import from .components.logo { FAVICON_SVG }
 
+glob:pub THEME_CSS: str = """
+:root {
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #f4f6f5; --surface-3: #eef1f0;
+    --border: #dde2e0; --text: #1c2530; --muted: #5a6470;
+    --accent: #0f5c4c; --accent-text: #0f5c4c; --accent-soft: #7cc4a8; --on-accent: #ffffff; --tint: #e9f3ef;
+    --danger: #8e2432; --danger-bg: #fdecee; --warn: #8a5a00; --warn-bg: #fff4e0;
+    --shadow: 0 1px 2px rgba(28, 37, 48, 0.05), 0 4px 16px -8px rgba(15, 92, 76, 0.18);
+    --glow: 0 0 0 1px rgba(63, 163, 124, 0.25), 0 12px 32px -10px rgba(15, 92, 76, 0.45);
+    --glow-strong: 0 6px 22px -4px rgba(31, 138, 108, 0.55);
+    --hero-glow: rgba(63, 163, 124, 0.20);
+    --logo-glow: rgba(15, 92, 76, 0.35);
+    color-scheme: light;
+}
+:root[data-theme="dark"] {
+    --bg: #0b1210; --surface: #121b18; --surface-2: #17231f; --surface-3: #1e2c27;
+    --border: #2a3a34; --text: #e6ecea; --muted: #9aaaa4;
+    --accent: #1f8a6c; --accent-text: #5fd6ad; --accent-soft: #3f8f74; --on-accent: #ffffff; --tint: #12302a;
+    --danger: #ff8f9c; --danger-bg: #3a1c22; --warn: #f3c46e; --warn-bg: #3a2d12;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px -10px rgba(0, 0, 0, 0.6);
+    --glow: 0 0 0 1px rgba(95, 214, 173, 0.30), 0 12px 38px -8px rgba(95, 214, 173, 0.35);
+    --glow-strong: 0 0 26px -2px rgba(95, 214, 173, 0.55);
+    --hero-glow: rgba(95, 214, 173, 0.18);
+    --logo-glow: rgba(95, 214, 173, 0.45);
+    color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #0b1210; --surface: #121b18; --surface-2: #17231f; --surface-3: #1e2c27;
+    --border: #2a3a34; --text: #e6ecea; --muted: #9aaaa4;
+    --accent: #1f8a6c; --accent-text: #5fd6ad; --accent-soft: #3f8f74; --on-accent: #ffffff; --tint: #12302a;
+    --danger: #ff8f9c; --danger-bg: #3a1c22; --warn: #f3c46e; --warn-bg: #3a2d12;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px -10px rgba(0, 0, 0, 0.6);
+    --glow: 0 0 0 1px rgba(95, 214, 173, 0.30), 0 12px 38px -8px rgba(95, 214, 173, 0.35);
+    --glow-strong: 0 0 26px -2px rgba(95, 214, 173, 0.55);
+    --hero-glow: rgba(95, 214, 173, 0.18);
+    --logo-glow: rgba(95, 214, 173, 0.45);
+    color-scheme: dark;
+    }
+}
+@keyframes jac-spin { to { transform: rotate(360deg); } }
+@keyframes jac-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(63, 163, 124, 0.0); } 50% { box-shadow: 0 0 22px 4px rgba(63, 163, 124, 0.45); } }
+@keyframes jac-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+html, body { background: var(--bg); color: var(--text); }
+*:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--glow); }
+button, a, input, select, textarea { transition: box-shadow 0.2s, filter 0.2s, border-color 0.2s, background 0.2s; }
+button:not(:disabled):hover { filter: brightness(1.08); }
+input, select, textarea { color: var(--text); }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
+[data-glow] { transition: box-shadow 0.25s, border-color 0.25s; }
+[data-glow]:hover { box-shadow: var(--glow); border-color: var(--accent-soft); }
+""";
+
 def:pub Shell(children: any) -> JsxElement {
     can with entry {
         head: any = document.head;
+        if not document.getElementById("jaccepted-theme") {
+            sheet: any = document.createElement("style");
+            sheet.setAttribute("id", "jaccepted-theme");
+            sheet.textContent = THEME_CSS;
+            head.appendChild(sheet);
+        }
+        try {
+            chosen = localStorage.getItem("jaccepted.theme");
+            if chosen == "dark" or chosen == "light" {
+                document.documentElement.setAttribute("data-theme", chosen);
+            }
+        } except Exception {
+            chosen = "";
+        }
         icon: any = document.querySelector("link[rel='icon']");
         if not icon {
             icon = document.createElement("link");
@@ -14,8 +80,8 @@ def:pub Shell(children: any) -> JsxElement {
         icon.setAttribute("type", "image/svg+xml");
         icon.setAttribute("href", "data:image/svg+xml," + encodeURIComponent(FAVICON_SVG));
         document.body.style.setProperty("margin", "0");
-        document.body.style.setProperty("background", "#ffffff");
-        document.body.style.setProperty("color", "#1c2530");
+        document.body.style.setProperty("background", "var(--bg)");
+        document.body.style.setProperty("color", "var(--text)");
         document.body.style.setProperty("font-family", "'Helvetica Neue', Helvetica, Arial, sans-serif");
         document.body.style.setProperty("font-size", "16px");
         document.body.style.setProperty("line-height", "1.45");
@@ -30,14 +96,14 @@ def:pub Shell(children: any) -> JsxElement {
 
 glob:pub FOOTER: dict[str, str] = {
     "padding": "1.5rem 1rem 2rem",
-    "borderTop": "1px solid #dde2e0",
+    "borderTop": "1px solid var(--border)",
     "textAlign": "center",
-    "color": "#5a6470",
+    "color": "var(--muted)",
     "fontSize": "0.9rem"
 };
 
 glob:pub FOOTER_LINK: dict[str, str] = {
-    "color": "#0f5c4c",
+    "color": "var(--accent-text)",
     "fontWeight": "700"
 };
 
@@ -47,7 +113,8 @@ glob:pub HOME: dict[str, str] = {
     "alignItems": "center",
     "padding": "4.5rem 1rem 4rem",
     "textAlign": "center",
-    "boxSizing": "border-box"
+    "boxSizing": "border-box",
+    "background": "radial-gradient(56rem 26rem at 50% -6rem, var(--hero-glow), transparent 70%)"
 };
 
 glob:pub HOME_TITLE: dict[str, str] = {
@@ -62,7 +129,7 @@ glob:pub HOME_TITLE: dict[str, str] = {
 glob:pub HOME_TAGLINE: dict[str, str] = {
     "margin": "0.9rem 0 0",
     "maxWidth": "36rem",
-    "color": "#5a6470",
+    "color": "var(--muted)",
     "fontSize": "1.15rem"
 };
 
@@ -87,8 +154,9 @@ glob:pub HOME_CREATE: dict[str, str] = {
     "textDecoration": "none",
     "cursor": "pointer",
     "border": "0",
-    "background": "#0f5c4c",
-    "color": "#ffffff"
+    "background": "var(--accent)",
+    "color": "var(--on-accent)",
+    "boxShadow": "var(--glow-strong)"
 };
 
 glob:pub HOME_SIGNIN: dict[str, str] = {
@@ -103,9 +171,9 @@ glob:pub HOME_SIGNIN: dict[str, str] = {
     "fontWeight": "650",
     "textDecoration": "none",
     "cursor": "pointer",
-    "background": "#ffffff",
-    "color": "#1c2530",
-    "border": "1px solid #dde2e0"
+    "background": "var(--surface)",
+    "color": "var(--text)",
+    "border": "1px solid var(--border)"
 };
 
 glob:pub PAGE: dict[str, str] = {
@@ -117,7 +185,7 @@ glob:pub PAGE: dict[str, str] = {
 
 glob:pub EYEBROW: dict[str, str] = {
     "margin": "0",
-    "color": "#0f5c4c",
+    "color": "var(--accent-text)",
     "fontSize": "0.8rem",
     "fontWeight": "700",
     "letterSpacing": "0.04em",
@@ -135,7 +203,7 @@ glob:pub TITLE: dict[str, str] = {
 
 glob:pub LEDE: dict[str, str] = {
     "margin": "0",
-    "color": "#5a6470"
+    "color": "var(--muted)"
 };
 
 glob:pub STEPS: dict[str, str] = {
@@ -145,9 +213,9 @@ glob:pub STEPS: dict[str, str] = {
     "margin": "0",
     "padding": "0.4rem 0",
     "listStyle": "none",
-    "border": "1px solid #dde2e0",
+    "border": "1px solid var(--border)",
     "borderRadius": "12px",
-    "background": "#ffffff"
+    "background": "var(--surface)"
 };
 
 glob:pub INTAKE_PAGE: dict[str, str] = {
@@ -175,17 +243,17 @@ def:pub step_dot(done: bool) -> dict[str, str] {
         "borderRadius": "999px",
         "fontSize": "0.85rem",
         "fontWeight": "700",
-        "background": "#0f5c4c" if done else "#eef1f0",
-        "color": "#ffffff" if done else "#5a6470"
+        "background": "var(--accent)" if done else "var(--surface-3)",
+        "color": "var(--on-accent)" if done else "var(--muted)"
     };
 }
 
 glob:pub CARD: dict[str, str] = {
-    "background": "#ffffff",
-    "border": "1px solid #dde2e0",
+    "background": "var(--surface)",
+    "border": "1px solid var(--border)",
     "borderRadius": "12px",
     "padding": "1.25rem",
-    "boxShadow": "0 1px 2px rgba(28, 37, 48, 0.04)"
+    "boxShadow": "var(--shadow)"
 };
 
 glob:pub SECTION_TITLE: dict[str, str] = {
@@ -228,7 +296,7 @@ glob:pub REQ: dict[str, str] = {
     "fontWeight": "650",
     "letterSpacing": "0.02em",
     "textTransform": "uppercase",
-    "color": "#8e2432"
+    "color": "var(--danger)"
 };
 
 glob:pub OPT: dict[str, str] = {
@@ -237,17 +305,17 @@ glob:pub OPT: dict[str, str] = {
     "fontWeight": "650",
     "letterSpacing": "0.02em",
     "textTransform": "uppercase",
-    "color": "#5a6470"
+    "color": "var(--muted)"
 };
 
 glob:pub CONTROL: dict[str, str] = {
     "width": "100%",
     "minHeight": "48px",
     "padding": "0.55rem 0.7rem",
-    "border": "1px solid #dde2e0",
+    "border": "1px solid var(--border)",
     "borderRadius": "10px",
-    "background": "white",
-    "color": "#1c2530",
+    "background": "var(--surface)",
+    "color": "var(--text)",
     "font": "inherit",
     "boxSizing": "border-box"
 };
@@ -256,16 +324,16 @@ glob:pub CONTROL_OFF: dict[str, str] = {
     "width": "100%",
     "minHeight": "48px",
     "padding": "0.55rem 0.7rem",
-    "border": "1px solid #dde2e0",
+    "border": "1px solid var(--border)",
     "borderRadius": "10px",
-    "background": "#f4f6f5",
-    "color": "#5a6470",
+    "background": "var(--surface-2)",
+    "color": "var(--muted)",
     "font": "inherit",
     "boxSizing": "border-box"
 };
 
 glob:pub CONTROL_OPEN: dict[str, str] = {
-    "borderColor": "#0f5c4c",
+    "borderColor": "var(--accent)",
     "borderBottomLeftRadius": "0",
     "borderBottomRightRadius": "0",
     "outline": "none"
@@ -277,10 +345,10 @@ glob:pub SUGGEST_LIST: dict[str, str] = {
     "padding": "0.25rem",
     "maxHeight": "15rem",
     "overflowY": "auto",
-    "border": "1px solid #0f5c4c",
-    "borderTop": "1px solid #eef1f0",
+    "border": "1px solid var(--accent)",
+    "borderTop": "1px solid var(--surface-3)",
     "borderRadius": "0 0 10px 10px",
-    "background": "white",
+    "background": "var(--surface)",
     "boxSizing": "border-box"
 };
 
@@ -288,21 +356,21 @@ glob:pub SUGGEST_ITEM: dict[str, str] = {
     "padding": "0.6rem 0.6rem",
     "borderRadius": "7px",
     "cursor": "pointer",
-    "color": "#1c2530"
+    "color": "var(--text)"
 };
 
 glob:pub SUGGEST_ITEM_ON: dict[str, str] = {
     "padding": "0.6rem 0.6rem",
     "borderRadius": "7px",
     "cursor": "pointer",
-    "color": "#0f5c4c",
-    "background": "#e9f3ef",
+    "color": "var(--accent-text)",
+    "background": "var(--tint)",
     "fontWeight": "600"
 };
 
 glob:pub HINT: dict[str, str] = {
     "margin": "0",
-    "color": "#5a6470",
+    "color": "var(--muted)",
     "fontSize": "0.9rem"
 };
 
@@ -329,9 +397,9 @@ glob:pub CHOICE: dict[str, str] = {
     "minHeight": "44px",
     "margin": "0",
     "padding": "0.35rem 0.7rem",
-    "border": "1px solid #dde2e0",
+    "border": "1px solid var(--border)",
     "borderRadius": "999px",
-    "background": "white",
+    "background": "var(--surface)",
     "fontWeight": "500"
 };
 
@@ -346,25 +414,25 @@ glob:pub BANNER: dict[str, str] = {
     "margin": "0.8rem 0 0",
     "padding": "0.7rem 0.8rem",
     "borderRadius": "10px",
-    "background": "#fdecee",
-    "color": "#8e2432"
+    "background": "var(--danger-bg)",
+    "color": "var(--danger)"
 };
 
 glob:pub SUCCESS: dict[str, str] = {
     "margin": "0.8rem 0 0",
     "padding": "0.7rem 0.8rem",
     "borderRadius": "10px",
-    "background": "#e9f3ef",
-    "color": "#0f5c4c"
+    "background": "var(--tint)",
+    "color": "var(--accent-text)"
 };
 
 glob:pub TOPBAR: dict[str, str] = {
     "position": "sticky",
     "top": "0",
     "zIndex": "10",
-    "background": "#ffffff",
-    "borderBottom": "1px solid #dde2e0",
-    "boxShadow": "0 1px 3px rgba(28, 37, 48, 0.06)"
+    "background": "var(--surface)",
+    "borderBottom": "1px solid var(--border)",
+    "boxShadow": "var(--shadow)"
 };
 
 glob:pub TOPBAR_INNER: dict[str, str] = {
@@ -394,7 +462,7 @@ glob:pub TOPBAR_LINK: dict[str, str] = {
     "alignItems": "center",
     "minHeight": "48px",
     "borderBottom": "3px solid transparent",
-    "color": "#1c2530",
+    "color": "var(--text)",
     "fontWeight": "600",
     "fontSize": "0.95rem",
     "textDecoration": "none"
@@ -404,8 +472,8 @@ glob:pub TOPBAR_LINK_ON: dict[str, str] = {
     "display": "inline-flex",
     "alignItems": "center",
     "minHeight": "48px",
-    "borderBottom": "3px solid #0f5c4c",
-    "color": "#0f5c4c",
+    "borderBottom": "3px solid var(--accent)",
+    "color": "var(--accent-text)",
     "fontWeight": "700",
     "fontSize": "0.95rem",
     "textDecoration": "none"
@@ -424,8 +492,9 @@ glob:pub PRIMARY: dict[str, str] = {
     "cursor": "pointer",
     "border": "0",
     "padding": "0.65rem 1rem",
-    "background": "#0f5c4c",
-    "color": "#ffffff"
+    "background": "var(--accent)",
+    "color": "var(--on-accent)",
+    "boxShadow": "var(--glow-strong)"
 };
 
 glob:pub SECONDARY: dict[str, str] = {
@@ -435,14 +504,14 @@ glob:pub SECONDARY: dict[str, str] = {
     "cursor": "pointer",
     "padding": "0.65rem 1rem",
     "background": "transparent",
-    "color": "#1c2530",
-    "border": "1px solid #dde2e0"
+    "color": "var(--text)",
+    "border": "1px solid var(--border)"
 };
 
 glob:pub REVIEW_BLOCK: dict[str, str] = {
     "marginTop": "1rem",
     "paddingTop": "0.8rem",
-    "borderTop": "1px solid #dde2e0"
+    "borderTop": "1px solid var(--border)"
 };
 
 glob:pub REVIEW_HEAD: dict[str, str] = {
@@ -459,7 +528,7 @@ glob:pub EDIT: dict[str, str] = {
     "cursor": "pointer",
     "border": "0",
     "background": "transparent",
-    "color": "#0f5c4c",
+    "color": "var(--accent-text)",
     "padding": "0.2rem 0",
     "textDecoration": "underline"
 };
@@ -472,7 +541,7 @@ glob:pub REVIEW: dict[str, str] = {
 };
 
 glob:pub DT: dict[str, str] = {
-    "color": "#5a6470"
+    "color": "var(--muted)"
 };
 
 glob:pub DD: dict[str, str] = {
@@ -488,9 +557,9 @@ def:pub step_look(current: bool, done: bool) -> dict[str, str] {
         "minHeight": "48px",
         "padding": "0.4rem 0.9rem",
         "border": "0",
-        "borderLeft": "4px solid #0f5c4c" if current else "4px solid transparent",
-        "background": "#e9f3ef" if current else "transparent",
-        "color": "#0f5c4c" if current or done else "#1c2530",
+        "borderLeft": "4px solid var(--accent)" if current else "4px solid transparent",
+        "background": "var(--tint)" if current else "transparent",
+        "color": "var(--accent-text)" if current or done else "var(--text)",
         "font": "inherit",
         "fontWeight": "700" if current else "500",
         "textAlign": "left",
@@ -508,7 +577,7 @@ glob:pub BUCKET_HEAD: dict[str, str] = {
 
 glob:pub RESULT: dict[str, str] = {
     "padding": "0.85rem 0",
-    "borderTop": "1px solid #dde2e0"
+    "borderTop": "1px solid var(--border)"
 };
 
 glob:pub RESULT_HEAD: dict[str, str] = {
@@ -529,8 +598,8 @@ glob:pub FIT: dict[str, str] = {
     "minWidth": "3.2rem",
     "padding": "0.2rem 0.5rem",
     "borderRadius": "8px",
-    "background": "#e9f3ef",
-    "color": "#0f5c4c",
+    "background": "var(--tint)",
+    "color": "var(--accent-text)",
     "fontWeight": "700",
     "textAlign": "center"
 };
@@ -540,7 +609,7 @@ glob:pub FACTS: dict[str, str] = {
     "flexWrap": "wrap",
     "gap": "0.25rem 1rem",
     "margin": "0.3rem 0 0",
-    "color": "#5a6470",
+    "color": "var(--muted)",
     "fontSize": "0.9rem"
 };
 
@@ -555,8 +624,8 @@ glob:pub BADGE: dict[str, str] = {
     "marginLeft": "0.5rem",
     "padding": "0.05rem 0.45rem",
     "borderRadius": "999px",
-    "background": "#0f5c4c",
-    "color": "#ffffff",
+    "background": "var(--accent)",
+    "color": "var(--on-accent)",
     "fontSize": "0.72rem",
     "fontWeight": "700",
     "letterSpacing": "0.03em",
@@ -565,16 +634,16 @@ glob:pub BADGE: dict[str, str] = {
 };
 
 glob:pub LINK: dict[str, str] = {
-    "color": "#0f5c4c",
+    "color": "var(--accent-text)",
     "fontWeight": "650"
 };
 
 def:pub bucket_look(bucket: str) -> dict[str, str] {
-    color = "#0f5c4c";
+    color = "var(--accent-text)";
     if bucket == "reach" {
-        color = "#8e2432";
+        color = "var(--danger)";
     } elif bucket == "target" {
-        color = "#8a5a00";
+        color = "var(--warn)";
     }
     return {
         "margin": "0",
@@ -588,7 +657,7 @@ glob:pub LINK_BUTTON: dict[str, str] = {
     "border": "0",
     "padding": "0",
     "background": "transparent",
-    "color": "#0f5c4c",
+    "color": "var(--accent-text)",
     "font": "inherit",
     "fontWeight": "650",
     "textDecoration": "underline",
@@ -615,10 +684,10 @@ glob:pub TOOL_INPUT: dict[str, str] = {
     "minHeight": "48px",
     "minWidth": "12rem",
     "padding": "0.55rem 0.7rem",
-    "border": "1px solid #dde2e0",
+    "border": "1px solid var(--border)",
     "borderRadius": "10px",
-    "background": "white",
-    "color": "#1c2530",
+    "background": "var(--surface)",
+    "color": "var(--text)",
     "font": "inherit",
     "fontWeight": "400",
     "boxSizing": "border-box"
@@ -636,12 +705,12 @@ glob:pub STAT_ROW: dict[str, str] = {
     "justifyContent": "space-between",
     "gap": "1rem",
     "padding": "0.3rem 0",
-    "borderBottom": "1px solid #f4f6f5",
+    "borderBottom": "1px solid var(--surface-2)",
     "fontSize": "0.92rem"
 };
 
 glob:pub STAT_LABEL: dict[str, str] = {
-    "color": "#5a6470"
+    "color": "var(--muted)"
 };
 
 glob:pub STAT_VALUE: dict[str, str] = {
@@ -654,7 +723,7 @@ glob:pub RANGE_TRACK: dict[str, str] = {
     "height": "10px",
     "margin": "1.4rem 0 0.7rem",
     "borderRadius": "999px",
-    "background": "#f4f6f5"
+    "background": "var(--surface-2)"
 };
 
 def:pub range_fill(low_pct: float, high_pct: float) -> dict[str, str] {
@@ -665,7 +734,7 @@ def:pub range_fill(low_pct: float, high_pct: float) -> dict[str, str] {
         "left": str(low_pct) + "%",
         "width": str(max(high_pct - low_pct, 1.0)) + "%",
         "borderRadius": "999px",
-        "background": "#0f5c4c",
+        "background": "var(--accent)",
         "opacity": "0.55"
     };
 }
@@ -678,7 +747,7 @@ def:pub range_marker(pct: float) -> dict[str, str] {
         "width": "6px",
         "height": "22px",
         "borderRadius": "3px",
-        "background": "#8e2432"
+        "background": "var(--danger)"
     };
 }
 
@@ -694,9 +763,10 @@ glob:pub ME_BUBBLE: dict[str, str] = {
     "maxWidth": "85%",
     "padding": "0.7rem 0.95rem",
     "borderRadius": "16px 16px 4px 16px",
-    "background": "#0f5c4c",
-    "color": "#ffffff",
-    "whiteSpace": "pre-wrap"
+    "background": "var(--accent)",
+    "color": "var(--on-accent)",
+    "whiteSpace": "pre-wrap",
+    "boxShadow": "var(--glow-strong)"
 };
 
 glob:pub AGENT_ROW: dict[str, str] = {
@@ -714,9 +784,9 @@ glob:pub AGENT_BODY: dict[str, str] = {
 };
 
 glob:pub STEP_BOX: dict[str, str] = {
-    "border": "1px solid #dde2e0",
+    "border": "1px solid var(--border)",
     "borderRadius": "12px",
-    "background": "#f4f6f5",
+    "background": "var(--surface-2)",
     "padding": "0.55rem 0.8rem"
 };
 
@@ -727,7 +797,7 @@ glob:pub STEP_LIST: dict[str, str] = {
     "display": "flex",
     "flexDirection": "column",
     "gap": "0.3rem",
-    "color": "#5a6470",
+    "color": "var(--muted)",
     "fontSize": "0.92rem"
 };
 
@@ -735,7 +805,7 @@ glob:pub PICK_LIST: dict[str, str] = {
     "listStyle": "none",
     "margin": "0",
     "padding": "0",
-    "border": "1px solid #dde2e0",
+    "border": "1px solid var(--border)",
     "borderRadius": "12px",
     "overflow": "hidden"
 };
@@ -745,8 +815,8 @@ glob:pub PICK_ROW: dict[str, str] = {
     "alignItems": "center",
     "gap": "0.75rem",
     "padding": "0.75rem 0.9rem",
-    "borderTop": "1px solid #dde2e0",
-    "background": "#ffffff"
+    "borderTop": "1px solid var(--border)",
+    "background": "var(--surface)"
 };
 
 glob:pub PICK_TEXT: dict[str, str] = {
@@ -755,14 +825,14 @@ glob:pub PICK_TEXT: dict[str, str] = {
 };
 
 glob:pub PICK_NAME: dict[str, str] = {
-    "color": "#1c2530",
+    "color": "var(--text)",
     "fontWeight": "650",
     "textDecoration": "none"
 };
 
 glob:pub PICK_WHY: dict[str, str] = {
     "margin": "0.15rem 0 0",
-    "color": "#5a6470",
+    "color": "var(--muted)",
     "fontSize": "0.92rem"
 };
 
@@ -771,9 +841,9 @@ glob:pub SAVE_BUTTON: dict[str, str] = {
     "minHeight": "40px",
     "padding": "0 0.85rem",
     "borderRadius": "8px",
-    "border": "1px solid #0f5c4c",
-    "background": "#ffffff",
-    "color": "#0f5c4c",
+    "border": "1px solid var(--accent)",
+    "background": "var(--surface)",
+    "color": "var(--accent-text)",
     "font": "inherit",
     "fontWeight": "600",
     "cursor": "pointer"
@@ -784,21 +854,22 @@ glob:pub SAVED_BUTTON: dict[str, str] = {
     "minHeight": "40px",
     "padding": "0 0.85rem",
     "borderRadius": "8px",
-    "border": "1px solid #0f5c4c",
-    "background": "#0f5c4c",
-    "color": "#ffffff",
+    "border": "1px solid var(--accent)",
+    "background": "var(--accent)",
+    "color": "var(--on-accent)",
     "font": "inherit",
     "fontWeight": "600",
-    "cursor": "pointer"
+    "cursor": "pointer",
+    "boxShadow": "var(--glow-strong)"
 };
 
 glob:pub FOLLOW_UP: dict[str, str] = {
     "minHeight": "40px",
     "padding": "0.4rem 0.85rem",
     "borderRadius": "999px",
-    "border": "1px solid #dde2e0",
-    "background": "#ffffff",
-    "color": "#0f5c4c",
+    "border": "1px solid var(--border)",
+    "background": "var(--surface)",
+    "color": "var(--accent-text)",
     "font": "inherit",
     "fontWeight": "600",
     "cursor": "pointer",
@@ -808,10 +879,10 @@ glob:pub FOLLOW_UP: dict[str, str] = {
 glob:pub COMPOSER: dict[str, str] = {
     "position": "sticky",
     "bottom": "0",
-    "background": "#ffffff",
+    "background": "var(--surface)",
     "paddingTop": "0.75rem",
     "paddingBottom": "1rem",
-    "borderTop": "1px solid #dde2e0"
+    "borderTop": "1px solid var(--border)"
 };
 
 glob:pub COMPOSER_ROW: dict[str, str] = {
@@ -821,14 +892,14 @@ glob:pub COMPOSER_ROW: dict[str, str] = {
 };
 
 def:pub bucket_chip(bucket: str) -> dict[str, str] {
-    background = "#e9f3ef";
-    color = "#0f5c4c";
+    background = "var(--tint)";
+    color = "var(--accent-text)";
     if bucket == "reach" {
-        background = "#fdecee";
-        color = "#8e2432";
+        background = "var(--danger-bg)";
+        color = "var(--danger)";
     } elif bucket == "target" {
-        background = "#fff4e0";
-        color = "#8a5a00";
+        background = "var(--warn-bg)";
+        color = "var(--warn)";
     }
     return {
         "display": "inline-block",

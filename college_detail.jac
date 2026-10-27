@@ -6,7 +6,8 @@ college the same way the results list does, and lays out the public data.
 
 import from "@jac/runtime" { Link, useParams }
 import from .matching { CollegeDetail, Profile, college_detail }
-import from .results { dollars, profile_from }
+import from .results { dollars }
+import from .profile_data { profile_from }
 import from .list_store { refresh_saved }
 import from .components.nav { TopNav }
 import from .theme {

@@ -2,6 +2,7 @@
 
 import from "@jac/runtime" { Link, jacIsLoggedIn, jacLogout, useNavigate }
 import from ..components.logo { Logo }
+import from ..components.theme_toggle { ThemeToggle }
 import from ..theme {
     HOME,
     HOME_ACTIONS,
@@ -40,11 +41,14 @@ def:pub Home -> JsxPage {
         <header style={TOPBAR}>
             <div style={TOPBAR_INNER}>
                 <Logo size={36} />
-                {if signed_in {
-                    <button type="button" style={TOPBAR_LINK | {"background": "none", "border": "0", "font": "inherit", "cursor": "pointer"}} onClick={sign_out}>Sign out</button>
-                } else {
-                    <Link style={TOPBAR_LINK} to="/login">Sign in</Link>
-                }}
+                <div style={{"display": "flex", "alignItems": "center", "gap": "1rem"}}>
+                    <ThemeToggle />
+                    {if signed_in {
+                        <button type="button" style={TOPBAR_LINK | {"background": "none", "border": "0", "font": "inherit", "cursor": "pointer"}} onClick={sign_out}>Sign out</button>
+                    } else {
+                        <Link style={TOPBAR_LINK} to="/login">Sign in</Link>
+                    }}
+                </div>
             </div>
         </header>
         <main style={HOME}>
@@ -67,10 +71,10 @@ def:pub Home -> JsxPage {
             </div>
             <ol style={{"listStyle": "none", "padding": "0", "margin": "3rem 0 0", "display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(14rem, 1fr))", "gap": "1rem", "maxWidth": "60rem", "width": "100%", "textAlign": "left"}}>
                 {for step in STEPS {
-                    <li key={step[0]} style={{"border": "1px solid #dde2e0", "borderRadius": "12px", "padding": "1.1rem"}}>
-                        <span style={{"display": "inline-flex", "alignItems": "center", "justifyContent": "center", "width": "2rem", "height": "2rem", "borderRadius": "999px", "background": "#e9f3ef", "color": "#0f5c4c", "fontWeight": "700"}}>{step[0]}</span>
+                    <li key={step[0]} data-glow="true" style={{"border": "1px solid var(--border)", "borderRadius": "12px", "padding": "1.1rem", "background": "var(--surface)", "boxShadow": "var(--shadow)"}}>
+                        <span style={{"display": "inline-flex", "alignItems": "center", "justifyContent": "center", "width": "2rem", "height": "2rem", "borderRadius": "999px", "background": "var(--tint)", "color": "var(--accent-text)", "fontWeight": "700"}}>{step[0]}</span>
                         <h2 style={{"margin": "0.7rem 0 0.3rem", "fontSize": "1.1rem"}}>{step[1]}</h2>
-                        <p style={{"margin": "0", "color": "#5a6470"}}>{step[2]}</p>
+                        <p style={{"margin": "0", "color": "var(--muted)"}}>{step[2]}</p>
                     </li>
                 }}
             </ol>

@@ -164,11 +164,19 @@ sends more data to a model provider for little gain).
   price from our data, not from the model.
 - Picks can be saved to My List like any result.
 
-**Essay brainstorming (next).** For a saved college and intended major, the student
-writes a few short notes about real experiences; the model suggests 3–4 essay
-angles (with the essay type, questions to dig deeper, and pitfalls). It never
-writes essay text, uses only Common App prompts and general types ("Why this
-major"), and never invents a college's supplemental prompts.
+**Essay ideas (built, in the My Colleges tracker).** For a saved college, the
+student writes a few short notes about real experiences; a ByLLM call
+(`essays.jac`) suggests 3–4 essay angles, each with an essay type, questions to
+dig deeper, and a pitfall. Prompt engineering: a system prompt that forbids
+drafting and limits the model to the student's notes and our facts about the
+college; essay types from a fixed list of Common App themes plus "Why this
+major/college"; the student's notes treated as material, never instructions.
+The server then drops any angle that reads like drafted text (first person,
+too long) before it reaches the page.
+
+**Application tracker (built).** My Colleges tracks status, plan (RD/EA/ED/
+Rolling), deadline, a six-item checklist and notes per college, with a summary
+of progress and the next deadlines. It syncs with the saved list.
 
 **Later candidates:** conversational intake (free text → profile fields) and
 mapping typed-in majors to CIP codes.

@@ -6,6 +6,7 @@ and shows Reach, Target, and Likely colleges with the reasons for each.
 
 import from "@jac/runtime" { Link }
 import from .matching { CollegeMatch, MatchResult, Profile, match_colleges }
+import from .profile_data { profile_from }
 import from .list_store { refresh_dismissed, refresh_saved, store_dismissed, store_saved }
 import from .components.nav { TopNav }
 import from .theme {
@@ -43,53 +44,6 @@ import from .theme {
     bucket_look
 }
 
-def saved(data: any, key: str, fallback: str) -> str {
-    value = data[key];
-    if value {
-        return value as str;
-    }
-    return fallback;
-}
-
-def:pub profile_from(data: any) -> Profile {
-    return Profile(
-        gpa_unweighted=saved(data, "gpa_unweighted", ""),
-        gpa_scale=saved(data, "gpa_scale", "4.0"),
-        test_plan=saved(data, "test_plan", "none"),
-        sat_total=saved(data, "sat_total", ""),
-        act_composite=saved(data, "act_composite", ""),
-        undecided=saved(data, "undecided", "no"),
-        major1=saved(data, "major1", ""),
-        major2=saved(data, "major2", ""),
-        major3=saved(data, "major3", ""),
-        regions=saved(data, "regions", ""),
-        location_importance=saved(data, "location_importance", "ignore"),
-        setting=saved(data, "setting", ""),
-        setting_importance=saved(data, "setting_importance", "ignore"),
-        distance=saved(data, "distance", ""),
-        distance_importance=saved(data, "distance_importance", "ignore"),
-        size_small=saved(data, "size_small", "yes"),
-        size_medium=saved(data, "size_medium", "yes"),
-        size_large=saved(data, "size_large", "yes"),
-        size_importance=saved(data, "size_importance", "ignore"),
-        want_public=saved(data, "want_public", "yes"),
-        want_private=saved(data, "want_private", "yes"),
-        control_importance=saved(data, "control_importance", "ignore"),
-        religious=saved(data, "religious", ""),
-        religious_importance=saved(data, "religious_importance", "ignore"),
-        want_hbcu=saved(data, "want_hbcu", "no"),
-        hbcu_importance=saved(data, "hbcu_importance", "ignore"),
-        want_womens=saved(data, "want_womens", "no"),
-        womens_importance=saved(data, "womens_importance", "ignore"),
-        max_price=saved(data, "max_price", ""),
-        price_importance=saved(data, "price_importance", "ignore"),
-        outcomes_importance=saved(data, "outcomes_importance", "ignore"),
-        income_bracket=saved(data, "income_bracket", ""),
-        home_state=saved(data, "home_state", ""),
-        home_zip=saved(data, "home_zip", "")
-    );
-}
-
 def:pub dollars(amount: int) -> str {
     digits = str(amount);
     grouped = "";
@@ -110,13 +64,13 @@ def ResultCard(
         <div style={PICK_TEXT}>
             <Link style={PICK_NAME} to={"/college/" + item.unitid}>{item.name}</Link>
             {item.shortlist and <span style={BADGE}>Shortlist</span>}
-            <span style={{"color": "#5a6470", "fontSize": "0.9rem"}}>{" · " + item.city + ", " + item.state}</span>
+            <span style={{"color": "var(--muted)", "fontSize": "0.9rem"}}>{" · " + item.city + ", " + item.state}</span>
             {len(item.reasons) > 0 and <p style={PICK_WHY}>{item.reasons[0]}</p>}
         </div>
         <button type="button" style={SAVED_BUTTON if saved else SAVE_BUTTON} aria-pressed={saved} onClick={lambda { onSave(item); }}>
             {"Saved ✓" if saved else "Save"}
         </button>
-        <button type="button" style={SAVE_BUTTON | {"borderColor": "#dde2e0", "color": "#5a6470"}} aria-label={"Not interested in " + item.name} onClick={lambda { onDismiss(item); }}>✕</button>
+        <button type="button" style={SAVE_BUTTON | {"borderColor": "var(--border)", "color": "var(--muted)"}} aria-label={"Not interested in " + item.name} onClick={lambda { onDismiss(item); }}>✕</button>
     </li>
 }
 
