@@ -1,7 +1,8 @@
 """Start page: what Jaccepted does, then account actions."""
 
-import from "@jac/runtime" { Link, jacIsLoggedIn, jacLogout, useNavigate }
+import from "@jac/runtime" { Link, jacIsLoggedIn, useNavigate }
 import from ..components.logo { Logo }
+import from ..components.nav { sign_out_and_forget }
 import from ..components.theme_toggle { ThemeToggle }
 import from ..theme {
     HOME,
@@ -32,7 +33,7 @@ def:pub Home -> JsxPage {
     }
 
     def sign_out -> None {
-        jacLogout();
+        sign_out_and_forget();
         signed_in = False;
         navigate("/");
     }
