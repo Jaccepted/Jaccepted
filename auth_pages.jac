@@ -61,15 +61,16 @@ def:pub LoginForm -> JsxElement {
         error = "";
         ok: bool = False;
         try {
-            ok = await jacLogin(email.strip(), password);
+            # Pass an email identity explicitly - a bare string is treated as a username.
+            ok = await jacLogin({"type": "email", "value": email.strip()}, password);
         } except Exception {
             busy = "no";
-            error = "Sign in failed. Try again.";
+            error = "Sign in failed. Check that the app is running, then try again.";
             return;
         }
         busy = "no";
         if not ok {
-            error = "Email or password is wrong.";
+            error = "Email or password is wrong. Passwords are case-sensitive.";
             return;
         }
         navigate("/advisor");
@@ -107,7 +108,7 @@ def:pub LoginForm -> JsxElement {
                     <button type="button" style={PRIMARY} disabled={busy == "yes"} onClick={lambda { submit(); }}>
                         {"Signing in…" if busy == "yes" else "Sign in"}
                     </button>
-                    <Link style={SECONDARY} to="/signup">Create account</Link>
+                    <Link style={SECONDARY} to="/signup">Create Account</Link>
                 </div>
                 <p style={HINT}><Link style={LINK} to="/">Back to home</Link></p>
             </div>
@@ -144,8 +145,9 @@ def:pub SignupForm -> JsxElement {
         error = "";
         signup_result: SignupResult | None = None;
         login_ok: bool = False;
+        identity = {"type": "email", "value": email.strip()};
         try {
-            signup_result = await jacSignup(email.strip(), password);
+            signup_result = await jacSignup([identity], password);
         } except Exception {
             busy = "no";
             error = "Could not create the account. Try again.";
@@ -157,7 +159,7 @@ def:pub SignupForm -> JsxElement {
             return;
         }
         try {
-            login_ok = await jacLogin(email.strip(), password);
+            login_ok = await jacLogin(identity, password);
         } except Exception {
             busy = "no";
             error = "Account created, but sign in failed. Try Sign in.";
@@ -174,11 +176,9 @@ def:pub SignupForm -> JsxElement {
     <div style={PAGE}>
         <header>
             <Link to="/" style={{"textDecoration": "none"}} aria-label="Jaccepted home"><Logo size={36} /></Link>
-            <p style={LEDE | {"marginTop": "0.9rem"}}>Create an account so your profile and college list stay with you.</p>
         </header>
         <main style={CARD}>
-            <h2 style={SECTION_TITLE}>Create account</h2>
-            <p style={LEDE}>After you create an account you go straight to the intake form.</p>
+            <h2 style={SECTION_TITLE | {"textAlign": "center"}}>Create Account</h2>
             {error and <p style={BANNER} role="alert">{error}</p>}
             <div style={STACK}>
                 <TextField
@@ -187,7 +187,7 @@ def:pub SignupForm -> JsxElement {
                     value={email}
                     onValue={lambda (value: str) { email = value; error = ""; }}
                     required={True}
-                    placeholder="you@school.edu"
+                    marked={False}
                     input_mode="email"
                 />
                 <TextField
@@ -196,7 +196,7 @@ def:pub SignupForm -> JsxElement {
                     value={password}
                     onValue={lambda (value: str) { password = value; error = ""; }}
                     required={True}
-                    hint="At least 6 characters."
+                    marked={False}
                     input_type="password"
                 />
                 <TextField
@@ -205,11 +205,12 @@ def:pub SignupForm -> JsxElement {
                     value={confirm}
                     onValue={lambda (value: str) { confirm = value; error = ""; }}
                     required={True}
+                    marked={False}
                     input_type="password"
                 />
                 <div style={NAV}>
                     <button type="button" style={PRIMARY} disabled={busy == "yes"} onClick={lambda { submit(); }}>
-                        {"Creating…" if busy == "yes" else "Create account"}
+                        {"Creating…" if busy == "yes" else "Create Account"}
                     </button>
                     <Link style={SECONDARY} to="/login">Sign in</Link>
                 </div>

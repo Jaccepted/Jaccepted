@@ -85,6 +85,7 @@ def:pub IntakeForm -> JsxElement {
     has step: str = "0",
         finished: str = "no",
         error: str = "",
+        draft_ready: bool = False,
         gpa_unweighted: str = "",
         gpa_weighted: str = "",
         gpa_scale: str = "4.0",
@@ -204,7 +205,8 @@ def:pub IntakeForm -> JsxElement {
     }
 
     async def sync_account -> None {
-        if not jacIsLoggedIn() {
+        # Do not write the empty default form over a saved vault before load finishes.
+        if not draft_ready or not jacIsLoggedIn() {
             return;
         }
         try {
@@ -301,17 +303,17 @@ def:pub IntakeForm -> JsxElement {
                     raw = stored as str;
                 }
             } except Exception {
+                draft_ready = True;
                 return;
             }
         }
-        if not raw {
-            return;
+        if raw {
+            try {
+                apply_draft(JSON.parse(raw));
+            } except Exception {
+            }
         }
-        try {
-            apply_draft(JSON.parse(raw));
-        } except Exception {
-            return;
-        }
+        draft_ready = True;
     }
 
     can with entry {
@@ -1030,11 +1032,11 @@ def:pub IntakeForm -> JsxElement {
                     </div>
                 }}
                 <div style={NAV}>
-                    {step != "0" and <button type="button" style={SECONDARY} onClick={prev_step}>Back</button>}
+                    {step != "0" and <button type="button" style={SECONDARY} disabled={not draft_ready} onClick={prev_step}>Back</button>}
                     {if step == "5" {
-                        <button type="button" style={PRIMARY} onClick={next_step}>Build my list with the advisor</button>
+                        <button type="button" style={PRIMARY} disabled={not draft_ready} onClick={next_step}>Build my list with the advisor</button>
                     } else {
-                        <button type="button" style={PRIMARY} onClick={next_step}>Continue</button>
+                        <button type="button" style={PRIMARY} disabled={not draft_ready} onClick={next_step}>Continue</button>
                     }}
                 </div>
             </section>

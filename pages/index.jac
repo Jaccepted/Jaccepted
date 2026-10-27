@@ -63,10 +63,7 @@ def:pub Home -> JsxPage {
                         <Link style={HOME_SIGNIN} to="/intake">My profile</Link>
                     </>
                 } else {
-                    <>
-                        <Link style={HOME_CREATE} to="/signup">Create account</Link>
-                        <Link style={HOME_SIGNIN} to="/login">Sign in</Link>
-                    </>
+                    <Link style={HOME_CREATE} to="/signup">Create Account</Link>
                 }}
             </div>
             <ol style={{"listStyle": "none", "padding": "0", "margin": "3rem 0 0", "display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(14rem, 1fr))", "gap": "1rem", "maxWidth": "60rem", "width": "100%", "textAlign": "left"}}>

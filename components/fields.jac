@@ -24,6 +24,7 @@ def:pub TextField(
     value: str,
     onValue: Callable[[str], None],
     required: bool = False,
+    marked: bool = True,
     hint: str = "",
     placeholder: str = "",
     input_mode: str = "text",
@@ -88,7 +89,9 @@ def:pub TextField(
     <div style={FIELD}>
         <label htmlFor={id} style={LABEL}>
             {label}
-            {<span style={REQ}>Required</span> if required else <span style={OPT}>Optional</span>}
+            {if marked {
+                <span style={REQ if required else OPT}>{("Required" if required else "Optional")}</span>
+            }}
         </label>
         <input
             id={id}

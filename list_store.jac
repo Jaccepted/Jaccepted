@@ -1,7 +1,14 @@
-"""Saved and dismissed colleges, kept in this browser and the account."""
+"""Saved colleges, dismissed ids, and intake draft — browser + account vault."""
 
 import from "@jac/runtime" { jacIsLoggedIn }
-import from .accounts { load_dismissed_ids, load_list, save_dismissed, save_list }
+import from .accounts {
+    load_dismissed_ids,
+    load_intake,
+    load_list,
+    save_dismissed,
+    save_intake,
+    save_list
+}
 
 def read_json(key: str) -> any {
     try {
@@ -18,6 +25,55 @@ def read_json(key: str) -> any {
 def write_json(key: str, value: any) -> None {
     try {
         localStorage.setItem(key, JSON.stringify(value));
+    } except Exception {
+        return;
+    }
+}
+
+"""Load intake JSON from the account when signed in, else from this browser."""
+async def:pub refresh_intake -> str {
+    if jacIsLoggedIn() {
+        remote: dict[str, any] | None = None;
+        try {
+            remote = await load_intake();
+        } except Exception {
+            remote = None;
+        }
+        if remote and remote.get("data") {
+            raw = remote["data"] as str;
+            if raw {
+                try {
+                    localStorage.setItem("jaccepted.intake", raw);
+                } except Exception {
+                }
+                return raw;
+            }
+        }
+    }
+    try {
+        stored = localStorage.getItem("jaccepted.intake");
+        if stored {
+            return stored as str;
+        }
+    } except Exception {
+    }
+    return "";
+}
+
+def:pub store_intake(raw: str) -> None {
+    try {
+        localStorage.setItem("jaccepted.intake", raw);
+    } except Exception {
+    }
+    sync_intake(raw);
+}
+
+async def sync_intake(raw: str) -> None {
+    if not jacIsLoggedIn() {
+        return;
+    }
+    try {
+        await save_intake(raw);
     } except Exception {
         return;
     }
