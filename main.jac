@@ -14,6 +14,7 @@ import from accounts {
 }
 import from matching { CollegeDetail, CollegeMatch, MatchResult, Profile, college_detail, match_colleges }
 import from advisor { AdvisorChoice, AdvisorResult, ask_advisor }
+import from essays { EssayIdea, EssayResult, essay_ideas }
 
 def:pub app(children: any) -> JsxElement {
     return <>{children}</>;
