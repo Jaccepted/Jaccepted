@@ -34,3 +34,6 @@ auth_redirect = "/login"
 [client.app_meta_data]
 title = "Jaccepted"
 description = "Enter your academic profile and college preferences."
+
+[byllm.model]
+default_model = "${JACCEPTED_MODEL:-anthropic/claude-opus-5-5}"
