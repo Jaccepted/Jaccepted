@@ -54,6 +54,16 @@ def:pub dollars(amount: int) -> str {
     return "$" + digits + grouped;
 }
 
+def fee_text(fee: int | None) -> str {
+    if fee is None {
+        return "Application fee not published";
+    }
+    if fee == 0 {
+        return "No application fee";
+    }
+    return "Application fee " + dollars(fee);
+}
+
 def ResultCard(
     item: CollegeMatch,
     saved: bool,
@@ -66,6 +76,7 @@ def ResultCard(
             {item.shortlist and <span style={BADGE}>Shortlist</span>}
             <span style={{"color": "var(--muted)", "fontSize": "0.9rem"}}>{" · " + item.city + ", " + item.state}</span>
             {len(item.reasons) > 0 and <p style={PICK_WHY}>{item.reasons[0]}</p>}
+            <p style={PICK_WHY}>{fee_text(item.application_fee)}</p>
         </div>
         <button type="button" style={SAVED_BUTTON if saved else SAVE_BUTTON} aria-pressed={saved} onClick={lambda { onSave(item); }}>
             {"Saved ✓" if saved else "Save"}
@@ -129,7 +140,8 @@ def:pub ResultsView -> JsxElement {
                 "bucket": item.bucket,
                 "fit": item.fit,
                 "admit_rate": item.admit_rate,
-                "net_price": item.net_price
+                "net_price": item.net_price,
+                "application_fee": item.application_fee
             }];
         }
         store_saved(saved);

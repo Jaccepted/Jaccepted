@@ -80,6 +80,7 @@ obj CollegeMatch {
         fit: int,
         admit_rate: float | None = None,
         net_price: int | None = None,
+        application_fee: int | None = None,
         miles: int | None = None,
         website: str = "",
         shortlist: bool = False,
@@ -686,6 +687,7 @@ def match_one(
         fit=fit[0],
         admit_rate=admit,
         net_price=(int(round(price)) if price is not None else None),
+        application_fee=(int(college["application_fee"]) if college["application_fee"] is not None else None),
         miles=(int(round(miles)) if miles is not None else None),
         website=str(college["website"] or ""),
         reasons=reasons
