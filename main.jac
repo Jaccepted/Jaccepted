@@ -13,6 +13,7 @@ import from accounts {
     save_list
 }
 import from matching { CollegeDetail, CollegeMatch, MatchResult, Profile, college_detail, match_colleges }
+import from advisor { AdvisorChoice, AdvisorResult, ask_advisor }
 
 def:pub app(children: any) -> JsxElement {
     return <>{children}</>;

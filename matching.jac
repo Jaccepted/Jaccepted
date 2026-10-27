@@ -741,6 +741,21 @@ def ranked(matches: list[CollegeMatch], bucket: str, sort: str) -> list[CollegeM
     return group[:SHOW_PER_BUCKET];
 }
 
+"""Every college that passes the student's must-haves, scored and bucketed."""
+def passing_colleges(profile: Profile) -> list[CollegeMatch] {
+    majors = chosen_majors(profile);
+    home: list[float] | None = None;
+    zip_code = profile.home_zip.strip()[:5];
+    if zip_code {
+        home = ZIPS.get(zip_code, None);
+    }
+    return [
+        match_one(profile, college, majors, home)
+        for college in COLLEGES
+        if not must_have_failure(profile, college, majors, home)
+    ];
+}
+
 def match_profile(profile: Profile, query: str = "", sort: str = "fit") -> MatchResult {
     majors = chosen_majors(profile);
     home: list[float] | None = None;
@@ -759,16 +774,7 @@ def match_profile(profile: Profile, query: str = "", sort: str = "fit") -> Match
     if profile.undecided != "yes" and len(named) > len(majors) {
         notes.append("Majors that are not on the suggested list are not used for matching yet.");
     }
-    matches: list[CollegeMatch] = [];
-    for college in COLLEGES {
-        if must_have_failure(profile, college, majors, home) {
-            continue;
-        }
-        item = match_one(profile, college, majors, home);
-        if matches_query(item, query) {
-            matches.append(item);
-        }
-    }
+    matches = [item for item in passing_colleges(profile) if matches_query(item, query)];
     reach = ranked(matches, "reach", sort);
     target = ranked(matches, "target", sort);
     likely = ranked(matches, "likely", sort);

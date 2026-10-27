@@ -20,6 +20,9 @@ import from .intake_rules {
     tests_error
 }
 import from .theme {
+    INTAKE_LAYOUT,
+    INTAKE_PAGE,
+    step_dot,
     BANNER,
     CARD,
     EDIT,
@@ -407,7 +410,7 @@ def:pub IntakeForm -> JsxElement {
             finished = "yes";
             remember();
             await sync_account();
-            navigate("/results");
+            navigate("/advisor?start=1");
             return;
         }
         step = str(int(step) + 1);
@@ -644,48 +647,53 @@ def:pub IntakeForm -> JsxElement {
         copy = "This is an estimate profile for matching. It is not an admission decision.";
     }
 
-    <div style={PAGE}>
-        <header>
-            <p style={EYEBROW}>College list</p>
-            <h1 style={TITLE}>Jaccepted</h1>
+    <div style={INTAKE_PAGE}>
+        <header style={{"marginBottom": "1.25rem"}}>
+            <h1 style={TITLE}>My Profile</h1>
             <p style={LEDE}>
-                Tell us about your academics and what you want in a college. Matching uses this profile later. Nothing here predicts admission.
+                Tell us about your academics and what you want in a college. Your advisor uses this to build your list. Nothing here predicts admission.
             </p>
         </header>
-        <main>
-            <ol style={STEPS} aria-label="Intake steps">
+        <div style={INTAKE_LAYOUT}>
+            <ol style={STEPS} aria-label="Profile sections">
                 <li>
                     <button type="button" style={step_style("0")} aria-current={step_current("0")} onClick={lambda { go_to("0"); }}>
+                        <span style={step_dot(int("0") < int(step))} aria-hidden="true">{"✓" if int("0") < int(step) else "1"}</span>
                         Academics
                     </button>
                 </li>
                 <li>
                     <button type="button" style={step_style("1")} aria-current={step_current("1")} onClick={lambda { go_to("1"); }}>
+                        <span style={step_dot(int("1") < int(step))} aria-hidden="true">{"✓" if int("1") < int(step) else "2"}</span>
                         Tests
                     </button>
                 </li>
                 <li>
                     <button type="button" style={step_style("2")} aria-current={step_current("2")} onClick={lambda { go_to("2"); }}>
+                        <span style={step_dot(int("2") < int(step))} aria-hidden="true">{"✓" if int("2") < int(step) else "3"}</span>
                         Major
                     </button>
                 </li>
                 <li>
                     <button type="button" style={step_style("3")} aria-current={step_current("3")} onClick={lambda { go_to("3"); }}>
+                        <span style={step_dot(int("3") < int(step))} aria-hidden="true">{"✓" if int("3") < int(step) else "4"}</span>
                         Campus
                     </button>
                 </li>
                 <li>
                     <button type="button" style={step_style("4")} aria-current={step_current("4")} onClick={lambda { go_to("4"); }}>
-                        Cost
+                        <span style={step_dot(int("4") < int(step))} aria-hidden="true">{"✓" if int("4") < int(step) else "5"}</span>
+                        Cost and home
                     </button>
                 </li>
                 <li>
                     <button type="button" style={step_style("5")} aria-current={step_current("5")} onClick={lambda { go_to("5"); }}>
+                        <span style={step_dot(int("5") < int(step))} aria-hidden="true">{"✓" if int("5") < int(step) else "6"}</span>
                         Review
                     </button>
                 </li>
             </ol>
-            <section style={CARD} aria-labelledby="step-title">
+            <section style={CARD | {"flex": "1 1 26rem", "minWidth": "0"}} aria-labelledby="step-title">
                 <h2 id="step-title" style={SECTION_TITLE}>{title}</h2>
                 <p style={LEDE}>{copy}</p>
                 {error and <p style={BANNER} role="alert">{error}</p>}
@@ -1024,12 +1032,12 @@ def:pub IntakeForm -> JsxElement {
                 <div style={NAV}>
                     {step != "0" and <button type="button" style={SECONDARY} onClick={prev_step}>Back</button>}
                     {if step == "5" {
-                        <button type="button" style={PRIMARY} onClick={next_step}>See my college list</button>
+                        <button type="button" style={PRIMARY} onClick={next_step}>Build my list with the advisor</button>
                     } else {
                         <button type="button" style={PRIMARY} onClick={next_step}>Continue</button>
                     }}
                 </div>
             </section>
-        </main>
+        </div>
     </div>
 }

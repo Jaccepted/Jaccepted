@@ -9,6 +9,13 @@ import from .matching { CollegeMatch, MatchResult, Profile, match_colleges }
 import from .list_store { refresh_dismissed, refresh_saved, store_dismissed, store_saved }
 import from .components.nav { TopNav }
 import from .theme {
+    PICK_LIST,
+    PICK_NAME,
+    PICK_ROW,
+    PICK_TEXT,
+    PICK_WHY,
+    SAVED_BUTTON,
+    SAVE_BUTTON,
     BADGE,
     BANNER,
     BUCKET_HEAD,
@@ -83,20 +90,6 @@ def:pub profile_from(data: any) -> Profile {
     );
 }
 
-def admit_text(rate: float | None) -> str {
-    if rate is None {
-        return "Admit rate not published";
-    }
-    return "Admits " + str(Math.round(rate * 100)) + "%";
-}
-
-def price_text(price: int | None) -> str {
-    if price is None {
-        return "Net price not published";
-    }
-    return "~" + dollars(price) + "/yr net";
-}
-
 def:pub dollars(amount: int) -> str {
     digits = str(amount);
     grouped = "";
@@ -113,34 +106,17 @@ def ResultCard(
     onSave: Callable[[CollegeMatch], None],
     onDismiss: Callable[[CollegeMatch], None]
 ) -> JsxElement {
-    <li style={RESULT}>
-        <div style={RESULT_HEAD}>
-            <div>
-                <h3 style={RESULT_NAME}>
-                    <Link style={LINK} to={"/college/" + item.unitid}>{item.name}</Link>
-                    {item.shortlist and <span style={BADGE}>Shortlist</span>}
-                </h3>
-                <p style={FACTS}>
-                    <span>{item.city + ", " + item.state}</span>
-                    <span>{admit_text(item.admit_rate)}</span>
-                    <span>{price_text(item.net_price)}</span>
-                </p>
-            </div>
-            <div style={FIT} aria-label={"Fit " + str(item.fit) + " out of 100"}>{item.fit}</div>
+    <li style={PICK_ROW}>
+        <div style={PICK_TEXT}>
+            <Link style={PICK_NAME} to={"/college/" + item.unitid}>{item.name}</Link>
+            {item.shortlist and <span style={BADGE}>Shortlist</span>}
+            <span style={{"color": "#5a6470", "fontSize": "0.9rem"}}>{" · " + item.city + ", " + item.state}</span>
+            {len(item.reasons) > 0 and <p style={PICK_WHY}>{item.reasons[0]}</p>}
         </div>
-        <ul style={REASONS}>
-            {for reason in item.reasons {
-                <li key={reason}>{reason}</li>
-            }}
-        </ul>
-        <div style={NAV}>
-            {if saved {
-                <button type="button" style={SECONDARY} onClick={lambda { onSave(item); }}>Saved ✓ (remove)</button>
-            } else {
-                <button type="button" style={PRIMARY} onClick={lambda { onSave(item); }}>Save to My List</button>
-            }}
-            <button type="button" style={SECONDARY} onClick={lambda { onDismiss(item); }}>Not interested</button>
-        </div>
+        <button type="button" style={SAVED_BUTTON if saved else SAVE_BUTTON} aria-pressed={saved} onClick={lambda { onSave(item); }}>
+            {"Saved ✓" if saved else "Save"}
+        </button>
+        <button type="button" style={SAVE_BUTTON | {"borderColor": "#dde2e0", "color": "#5a6470"}} aria-label={"Not interested in " + item.name} onClick={lambda { onDismiss(item); }}>✕</button>
     </li>
 }
 
@@ -163,7 +139,7 @@ def Bucket(
         {if len(items) == 0 {
             <p style={HINT}>No colleges in this group. Loosening a must-have may add some.</p>
         }}
-        <ul style={{"listStyle": "none", "margin": "0.6rem 0 0", "padding": "0"}}>
+        <ul style={PICK_LIST | {"marginTop": "0.75rem"}}>
             {for item in items {
                 <ResultCard key={item.unitid} item={item} saved={item.unitid in saved_ids} onSave={onSave} onDismiss={onDismiss} />
             }}
@@ -279,10 +255,9 @@ def:pub ResultsView -> JsxElement {
         <TopNav current="results" saved_count={len(saved)} />
         <div style={PAGE}>
             <header>
-                <p style={EYEBROW}>Your college list</p>
-                <h1 style={TITLE}>Jaccepted</h1>
+                <h1 style={TITLE}>Explore</h1>
                 <p style={LEDE}>
-                    Colleges grouped by how your scores compare with students they admit. These are estimates, not admission predictions. Fit scores out of 100 reflect your preferences.
+                    Every college that fits your must-haves, grouped by how your scores compare with students they admit. These are estimates, not admission predictions. Want a shortlist instead? <Link style={LINK} to="/advisor">Ask your advisor.</Link>
                 </p>
             </header>
             <main style={STACK}>

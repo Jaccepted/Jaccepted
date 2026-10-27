@@ -1,5 +1,6 @@
 """My List: saved colleges by bucket, with a balance check."""
 
+import from "@jac/runtime" { Link }
 import from .list_store { balance_warning, refresh_saved, store_saved }
 import from .components.nav { TopNav }
 import from .theme {
@@ -11,6 +12,7 @@ import from .theme {
     FIT,
     HINT,
     LEDE,
+    LINK,
     NAV,
     PAGE,
     RESULT,
@@ -50,13 +52,12 @@ def:pub MyList -> JsxElement {
         <TopNav current="my-list" saved_count={len(items)} />
         <div style={PAGE}>
             <header>
-                <p style={EYEBROW}>My List</p>
-                <h1 style={TITLE}>Jaccepted</h1>
-                <p style={LEDE}>The colleges you saved, grouped by bucket. Saved in this browser.</p>
+                <h1 style={TITLE}>My Colleges</h1>
+                <p style={LEDE}>The colleges you saved, grouped by bucket. Ask your advisor to fill gaps or rebalance the list.</p>
             </header>
             <main style={STACK}>
                 {if len(items) == 0 {
-                    <p style={HINT}>Nothing saved yet. Use "Save to My List" on your results.</p>
+                    <p style={HINT}>Nothing saved yet. Save colleges from <Link style={LINK} to="/advisor">your advisor</Link> or <Link style={LINK} to="/results">Explore</Link>.</p>
                 } else {
                     <p style={SUCCESS if not warning else BANNER} role="status">
                         {warning if warning else str(reach) + " reach, " + str(target) + " target, " + str(likely) + " likely. A balanced list."}

@@ -1,6 +1,6 @@
 # Jaccepted — Product Spec
 
-> Status: **Draft v0.1** · Last updated 2026-10-01
+> Status: **Draft v0.2** · Last updated 2026-10-26 (adds the AI advisor and essay brainstorming; records decisions made since v0.1)
 > Sections marked **[DECISION]** are open questions to settle before building.
 
 ## 1. Summary
@@ -9,6 +9,9 @@ Jaccepted helps high-school students figure out **which colleges to apply to**.
 A student enters their academic profile and preferences, and Jaccepted returns a
 ranked, explained list of colleges, sorted into **Reach / Target / Likely**
 buckets, that they can save, compare and refine into a final application list.
+An **AI advisor** (a ByLLM agent) turns plain-English requests such as "a balanced
+list of 10, mostly in the Midwest" into a list built from that same matching
+data, and explains each pick.
 
 ## 2. Problem
 
@@ -25,10 +28,11 @@ buckets, that they can save, compare and refine into a final application list.
 1. Turn a student's profile into a balanced, personalized college list in under 10 minutes.
 2. Explain *why* each college was suggested and how competitive the student is there.
 3. Let students tweak preferences and immediately see the list change.
+4. Let students ask for the list they want in their own words, and get a grounded, explained answer.
 
 **Non-goals (for v1)**
 - Predicting admission with a precise probability. We give buckets, not percentages.
-- Writing essays or filling in applications.
+- Writing essays or filling in applications. (Suggesting essay *angles* from the student's own experiences is in scope; see §6.6. Drafting essay text is not.)
 - Covering international (non-US) universities.
 - Scholarship search and financial-aid application help.
 
@@ -129,9 +133,10 @@ balanced shortlist (default: 3 Reach / 4 Target / 3 Likely).
 SAT 1420 is within their middle 50% (1330–1480). Strong fit: offers Computer
 Science, medium size, ~$18k net price for your income bracket."
 
-*[DECISION]* Use an LLM (via Jac's `by llm`) to write the plain-English "why
-this school" summary from the structured breakdown? It adds polish, but costs
-money and means sending profile data to a model provider.
+*[DECIDED 2026-10-26]* Result cards keep their rule-based explanations. The AI
+advisor (§6.6) writes a short "why" for each of its picks, using only tool
+results. An LLM rewrite of every result card is deferred (it adds cost and
+sends more data to a model provider for little gain).
 
 ### 6.4 Results and My List
 
@@ -146,11 +151,45 @@ money and means sending profile data to a model provider.
 - Email sign-up so profile and list persist. Guest mode is optional: data is kept in the browser and can be converted to an account.
 - *[DECISION]* Is guest mode in scope for the MVP?
 
+### 6.6 AI features
+
+**AI advisor (MVP).** A ByLLM agent (`advisor.jac`) on its own page (`/advisor`).
+- The student writes a request; the agent calls tools that wrap the matching engine:
+  `find_colleges` (filter by bucket, region, state, public/private, price; sort by fit,
+  price, selectivity or distance), `college_facts` and `check_balance`.
+- It aims for 8–12 colleges with at least 2 Likely unless asked otherwise, checks
+  the balance, then answers with picks and a one- or two-sentence "why" for each.
+- **Grounded by construction:** the server drops any pick that is not one of this
+  student's matches, de-duplicates, and fills in name, bucket, admit rate and
+  price from our data, not from the model.
+- Picks can be saved to My List like any result.
+
+**Essay brainstorming (next).** For a saved college and intended major, the student
+writes a few short notes about real experiences; the model suggests 3–4 essay
+angles (with the essay type, questions to dig deeper, and pitfalls). It never
+writes essay text, uses only Common App prompts and general types ("Why this
+major"), and never invents a college's supplemental prompts.
+
+**Later candidates:** conversational intake (free text → profile fields) and
+mapping typed-in majors to CIP codes.
+
+**AI guardrails (all AI features)**
+- No admission odds or guarantees; Reach/Target/Likely stay labeled as estimates.
+- Every fact and number comes from our data through tools, never from model memory.
+- Send the model only what it needs: tool results and the request. No email,
+  name, ZIP code or income bracket is sent (tests check that the ZIP is not).
+- Signed-in users only (`def:protect`), request length capped, picks capped at 15.
+- If the model is unavailable, the advisor says so and the rest of the app works.
+- Model: Claude via ByLLM (`anthropic/claude-opus-5-5` by default, overridable with
+  `JACCEPTED_MODEL`). The API key lives in `ANTHROPIC_API_KEY`, never in the repo.
+- Tests use ByLLM's `MockLLM`, so they need no key and cost nothing.
+
 ## 7. Non-functional requirements
 
 - **Privacy:** most users are minors, so collect the minimum. No selling or sharing of data. Optional fields are clearly marked. Users can delete their account and data.
 - **Honesty:** results are always labeled as estimates. Never imply guaranteed admission.
-- **Performance:** matching across ~2,000 schools returns in < 2 s.
+- **Performance:** matching across ~2,000 schools returns in < 2 s. An advisor answer may take up to a minute; the page shows progress.
+- **AI cost:** advisor calls are limited to signed-in users; watch spend before launch and set a spending limit on the API key.
 - **Accessibility:** WCAG 2.1 AA, and mobile-friendly (students mostly use phones).
 
 ## 8. Architecture (proposed)
@@ -173,7 +212,9 @@ money and means sending profile data to a model provider.
 | Profile intake: academics, majors, core preferences | Activities/awards affecting the match |
 | Scorecard data for ~2,000 US 4-year schools | CDS / test-optional / ED-EA data |
 | Hard filters + bucket heuristic + fit score | ML-based admission model |
-| Results grouped by bucket, with explanations | LLM-written summaries |
+| Results grouped by bucket, with explanations | LLM rewrites of every result card |
+| AI advisor agent (ByLLM + Claude) with grounded picks | Conversational intake |
+| Essay angle brainstorming (no drafting) | College-specific supplemental prompts |
 | Save / dismiss / My List with balance check | Comparison view, counselor accounts |
 
 ## 10. Success metrics
@@ -185,10 +226,10 @@ money and means sending profile data to a model provider.
 
 ## 11. Open questions
 
-1. CLI-first or web-first? (§8)
+1. ~~CLI-first or web-first?~~ Decided: web app first (`kind = "web-app"`).
 2. Is guest mode in scope for the MVP? (§6.5)
-3. Should the LLM write "why this school" summaries? (§6.3)
+3. ~~Should the LLM write "why this school" summaries?~~ Decided: the AI advisor explains its own picks; result cards stay rule-based (§6.3, §6.6).
 4. Should activities/awards influence matching? They're hard to score fairly. One option is to use them only as a small boost at highly selective schools.
-5. Should we add Common Data Set data, and how would we collect it? (§6.2)
+5. ~~Should we add Common Data Set data?~~ Decided: yes, from the collegedata.fyi API (494 schools).
 6. Which demographic fields, if any, should we collect? (§6.1)
 7. Repo: should this stay connected to `Jaccepted/Jaccepted` on GitHub, or move to a new remote?

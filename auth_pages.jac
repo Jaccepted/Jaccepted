@@ -2,6 +2,7 @@
 
 import from "@jac/runtime" { Link, SignupResult, jacLogin, jacSignup, useNavigate }
 import from .components.fields { TextField }
+import from .components.logo { Logo }
 import from .theme {
     BANNER,
     CARD,
@@ -71,14 +72,13 @@ def:pub LoginForm -> JsxElement {
             error = "Email or password is wrong.";
             return;
         }
-        navigate("/results");
+        navigate("/advisor");
     }
 
     <div style={PAGE}>
         <header>
-            <p style={EYEBROW}>Account</p>
-            <h1 style={TITLE}>Jaccepted</h1>
-            <p style={LEDE}>Sign in to keep your profile and college list with your account.</p>
+            <Link to="/" style={{"textDecoration": "none"}} aria-label="Jaccepted home"><Logo size={36} /></Link>
+            <p style={LEDE | {"marginTop": "0.9rem"}}>Sign in to keep your profile and college list with your account.</p>
         </header>
         <main style={CARD}>
             <h2 style={SECTION_TITLE}>Sign in</h2>
@@ -173,9 +173,8 @@ def:pub SignupForm -> JsxElement {
 
     <div style={PAGE}>
         <header>
-            <p style={EYEBROW}>Account</p>
-            <h1 style={TITLE}>Jaccepted</h1>
-            <p style={LEDE}>Create an account so your profile and college list stay with you.</p>
+            <Link to="/" style={{"textDecoration": "none"}} aria-label="Jaccepted home"><Logo size={36} /></Link>
+            <p style={LEDE | {"marginTop": "0.9rem"}}>Create an account so your profile and college list stay with you.</p>
         </header>
         <main style={CARD}>
             <h2 style={SECTION_TITLE}>Create account</h2>
