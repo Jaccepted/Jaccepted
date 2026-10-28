@@ -9,6 +9,7 @@ import os;
 import re;
 import from jaclang.byllm.lib { Model }
 import from .matching { COLLEGES, MAJORS, offers }
+import from .ai_quota { LIMIT_MESSAGE, use_ai_request }
 
 glob essay_llm: any = Model(model_name=os.environ.get("JACCEPTED_MODEL", "anthropic/claude-opus-5-5"));
 
@@ -177,11 +178,14 @@ def short_note(text: str) -> str {
     return " ".join(sentences[:2]);
 }
 
-"""Essay ideas for one saved college. Signed-in students only."""
+"""Essay ideas for one saved college. Signed-in students only, with a daily cap."""
 def:protect essay_ideas(unitid: str, majors: list[str], notes: str) -> EssayResult {
     college = brief_for(unitid.strip(), [major.strip() for major in majors if major.strip()][:3]);
     if college is None {
         return EssayResult(ok=False, message="We couldn't find that college.");
+    }
+    if not use_ai_request() {
+        return EssayResult(ok=False, message=LIMIT_MESSAGE);
     }
     try {
         ideas = brainstorm(college, majors[:3], notes.strip()[:MAX_NOTES_CHARS], ESSAY_TYPES);
