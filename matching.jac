@@ -67,7 +67,8 @@ obj Profile {
         outcomes_importance: str = "ignore",
         income_bracket: str = "",
         home_state: str = "",
-        home_zip: str = "";
+        home_zip: str = "",
+        weights: dict[str, float] = {};
 }
 
 """One college in the results, with the reasons behind its bucket and fit."""
@@ -190,6 +191,30 @@ glob COLLEGES: list[dict[str, any]] = load_colleges();
 glob PROGRAMS: dict[str, list[str]] = load_programs();
 glob CDS: dict[str, dict[str, any]] = load_cds();
 glob ZIPS: dict[str, list[float]] = load_zips();
+
+# Preferences the advisor can re-weight, and the cap on any multiplier.
+glob WEIGHT_KEYS: list[str] = ["major", "location", "setting", "distance", "size", "type", "religion", "hbcu", "womens", "price", "outcomes"];
+glob MAX_WEIGHT: float = 3.0;
+
+glob STATE_NAMES: dict[str, str] = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
+    "colorado": "CO", "connecticut": "CT", "delaware": "DE", "district of columbia": "DC",
+    "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID", "illinois": "IL",
+    "indiana": "IN", "iowa": "IA", "kansas": "KS", "kentucky": "KY", "louisiana": "LA",
+    "maine": "ME", "maryland": "MD", "massachusetts": "MA", "michigan": "MI", "minnesota": "MN",
+    "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+    "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+    "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+    "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD",
+    "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA",
+    "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY"
+};
+
+"""Two-letter code for a state, whether the form sent the name ("Michigan") or the code ("MI")."""
+def state_code(raw: str) -> str {
+    text = raw.strip();
+    return STATE_NAMES.get(text.lower(), text.upper());
+}
 
 def weight(importance: str) -> float {
     if importance == "must" {
@@ -506,6 +531,20 @@ def bucket_for(admit: float | None, open_admission: bool, position: str) -> str 
     return "target";
 }
 
+"""A preference's weight, times the student's multiplier for it (0 to 3, 1 when unset).
+Raising a preference marked "don't care" turns it on at nice-to-have strength."""
+def weight_for(profile: Profile, key: str, importance: str) -> float {
+    base = weight(importance);
+    factor = 1.0;
+    if profile.weights and key in profile.weights {
+        factor = max(0.0, min(MAX_WEIGHT, float(profile.weights[key])));
+    }
+    if base == 0.0 and factor > 1.0 {
+        base = 1.0;
+    }
+    return base * factor;
+}
+
 def scaled(value: float, low: float, high: float) -> float {
     if value <= low {
         return 0.0;
@@ -531,14 +570,15 @@ def fit_for(
     unit = str(college["unitid"]);
     if majors {
         offered = [str(major[0]) for major in majors if offers(unit, major[1])];
-        total = total + 2.0 * len(offered) / len(majors);
-        weights = weights + 2.0;
+        wm = weight_for(profile, "major", "must");
+        total = total + wm * len(offered) / len(majors);
+        weights = weights + wm;
         if offered {
             reasons.append("Offers " + ", ".join(offered) + ".");
         }
     }
     regions = [part for part in profile.regions.split(",") if part];
-    w = weight(profile.location_importance);
+    w = weight_for(profile, "location", profile.location_importance);
     if w and regions {
         weights = weights + w;
         if college["region"] in regions {
@@ -546,13 +586,13 @@ def fit_for(
             reasons.append("In the " + college["region"] + ".");
         }
     }
-    home_state = profile.home_state.strip();
-    if home_state and str(college["state"]).strip() == home_state and str(college["control"]).startswith("public") {
+    home_state = state_code(profile.home_state);
+    if home_state and str(college["state"]).strip().upper() == home_state and str(college["control"]).startswith("public") {
         weights = weights + 1.0;
         total = total + 1.0;
         reasons.append("Public college in your home state.");
     }
-    w = weight(profile.setting_importance);
+    w = weight_for(profile, "setting", profile.setting_importance);
     if w and profile.setting {
         weights = weights + w;
         if setting_matches(profile.setting, college["setting"]) {
@@ -561,7 +601,7 @@ def fit_for(
         }
     }
     limit = parse_num(profile.distance);
-    w = weight(profile.distance_importance);
+    w = weight_for(profile, "distance", profile.distance_importance);
     if w and limit is not None and home is not None {
         weights = weights + w;
         if miles is not None {
@@ -573,7 +613,7 @@ def fit_for(
         }
     }
     sizes = sizes_wanted(profile);
-    w = weight(profile.size_importance);
+    w = weight_for(profile, "size", profile.size_importance);
     if w and len(sizes) < 3 {
         weights = weights + w;
         if college["size_band"] in sizes {
@@ -581,21 +621,21 @@ def fit_for(
             reasons.append(str(college["size_band"]).capitalize() + " size.");
         }
     }
-    w = weight(profile.control_importance);
+    w = weight_for(profile, "type", profile.control_importance);
     if w and not (profile.want_public == "yes" and profile.want_private == "yes") {
         weights = weights + w;
         if control_matches(profile, college["control"]) {
             total = total + w;
         }
     }
-    w = weight(profile.religious_importance);
+    w = weight_for(profile, "religion", profile.religious_importance);
     if w and profile.religious {
         weights = weights + w;
         if religious_matches(profile.religious, bool(college["religiously_affiliated"])) {
             total = total + w;
         }
     }
-    w = weight(profile.hbcu_importance);
+    w = weight_for(profile, "hbcu", profile.hbcu_importance);
     if w and profile.want_hbcu == "yes" {
         weights = weights + w;
         if college["hbcu"] {
@@ -603,7 +643,7 @@ def fit_for(
             reasons.append("HBCU.");
         }
     }
-    w = weight(profile.womens_importance);
+    w = weight_for(profile, "womens", profile.womens_importance);
     if w and profile.want_womens == "yes" {
         weights = weights + w;
         if college["womens_college"] {
@@ -612,7 +652,7 @@ def fit_for(
         }
     }
     budget = parse_num(profile.max_price);
-    w = weight(profile.price_importance);
+    w = weight_for(profile, "price", profile.price_importance);
     if w and budget is not None {
         weights = weights + w;
         if price is None {
@@ -625,7 +665,7 @@ def fit_for(
             reasons.append("About " + money(price) + " a year after grants, over your budget.");
         }
     }
-    w = weight(profile.outcomes_importance);
+    w = weight_for(profile, "outcomes", profile.outcomes_importance);
     if w {
         weights = weights + w;
         grad = college["grad_rate_6yr"];

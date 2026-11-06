@@ -55,6 +55,14 @@ glob MONTHS: list[str] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"
 
 glob NOTES_KEY: str = "jaccepted.essay_notes";
 
+glob ESSAY_FOCUSES: list[list[str]] = [
+    ["any", "Any essay"],
+    ["personal", "Personal statement"],
+    ["why_college", "Why this college"],
+    ["why_major", "Why this major"],
+    ["supplemental", "Supplemental essays"]
+];
+
 glob ROW_HEAD: dict[str, str] = {
     "display": "flex",
     "alignItems": "center",
@@ -129,7 +137,8 @@ def app_of(item: any) -> any {
         "tasks": app["tasks"] or [],
         "notes": app["notes"] or "",
         "ideas": app["ideas"] or [],
-        "ideas_note": app["ideas_note"] or ""
+        "ideas_note": app["ideas_note"] or "",
+        "ideas_used": app["ideas_used"] or []
     };
 }
 
@@ -178,8 +187,8 @@ def deadline_order(item: any) -> str {
     return (deadline if deadline else "9999-99-99") + str(item["name"]);
 }
 
-def IdeaCard(idea: EssayIdea) -> JsxElement {
-    <li style={IDEA_CARD}>
+def IdeaCard(idea: EssayIdea, used: bool, onUse: Callable[[str], None]) -> JsxElement {
+    <li style={IDEA_CARD | ({"border": "1px solid var(--accent)", "boxShadow": "var(--glow)"} if used else {})}>
         <span style={{"display": "inline-block", "marginBottom": "0.3rem", "padding": "0.05rem 0.5rem", "borderRadius": "999px", "background": "var(--tint)", "color": "var(--accent-text)", "fontSize": "0.75rem", "fontWeight": "700"}}>{idea.essay_type}</span>
         <h4 style={{"margin": "0 0 0.25rem", "fontSize": "1rem"}}>{idea.title}</h4>
         <p style={{"margin": "0", "lineHeight": "1.5"}}>{idea.idea}</p>
@@ -189,6 +198,14 @@ def IdeaCard(idea: EssayIdea) -> JsxElement {
             }}
         </ul>}
         {idea.avoid and <p style={{"margin": "0.45rem 0 0", "fontSize": "0.88rem", "color": "var(--warn)"}}>{"Avoid: " + idea.avoid}</p>}
+        <button
+            type="button"
+            aria-pressed={used}
+            onClick={lambda { onUse(idea.title); }}
+            style={{"marginTop": "0.6rem", "minHeight": "36px", "padding": "0 0.8rem", "borderRadius": "8px", "border": "1px solid var(--accent)", "background": "var(--accent)" if used else "var(--surface)", "color": "var(--on-accent)" if used else "var(--accent-text)", "font": "inherit", "fontWeight": "600", "cursor": "pointer"}}
+        >
+            {"Using this idea ✓" if used else "Use this idea"}
+        </button>
     </li>
 }
 
@@ -197,6 +214,7 @@ def:pub MyList -> JsxElement {
         open_id: str = "",
         essay_notes: str = "",
         loading_ideas: str = "",
+        essay_focus: str = "any",
         idea_error: str = "";
 
     async def load -> None {
@@ -238,6 +256,15 @@ def:pub MyList -> JsxElement {
         }
     }
 
+    def toggle_idea(item: any, title: str) -> None {
+        used = app_of(item)["ideas_used"] as list[str];
+        if title in used {
+            update(item["unitid"] as str, "ideas_used", [kept for kept in used if kept != title]);
+        } else {
+            update(item["unitid"] as str, "ideas_used", used + [title]);
+        }
+    }
+
     def remove(unitid: str) -> None {
         items = [item for item in items if item["unitid"] != unitid];
         store_saved(items);
@@ -273,7 +300,7 @@ def:pub MyList -> JsxElement {
         idea_error = "";
         result = EssayResult(ok=False, message="Essay ideas are unavailable right now.");
         try {
-            result = await essay_ideas(unitid, majors(), essay_notes);
+            result = await essay_ideas(unitid, majors(), essay_notes, essay_focus);
         } except Exception {
             result = EssayResult(ok=False, message="Essay ideas are unavailable right now.");
         }
@@ -420,7 +447,13 @@ def:pub MyList -> JsxElement {
                                         onChange={lambda (e: any) { essay_notes = e.target.value; }}
                                         onBlur={save_notes}
                                     />
-                                    <div style={{"display": "flex", "alignItems": "center", "gap": "0.6rem", "marginTop": "0.6rem"}}>
+                                    <div style={{"display": "flex", "alignItems": "center", "flexWrap": "wrap", "gap": "0.6rem", "marginTop": "0.6rem"}}>
+                                        <label style={{"position": "absolute", "left": "-9999px"}} htmlFor={"focus-" + item["unitid"]}>Kind of essay</label>
+                                        <select id={"focus-" + item["unitid"]} value={essay_focus} style={CONTROL | {"width": "auto"}} onChange={lambda (e: any) { essay_focus = e.target.value; }}>
+                                            {for focus in ESSAY_FOCUSES {
+                                                <option key={focus[0]} value={focus[0]}>{focus[1]}</option>
+                                            }}
+                                        </select>
                                         <button
                                             type="button"
                                             style={PRIMARY | {"display": "inline-flex", "alignItems": "center", "gap": "0.45rem"}}
@@ -435,7 +468,12 @@ def:pub MyList -> JsxElement {
                                     {app_of(item)["ideas_note"] and <p style={HINT | {"marginTop": "0.6rem"}}>{app_of(item)["ideas_note"]}</p>}
                                     {len(app_of(item)["ideas"]) > 0 and <ul style={{"listStyle": "none", "padding": "0", "margin": "0.7rem 0 0", "display": "flex", "flexDirection": "column", "gap": "0.6rem"}}>
                                         {for idea in app_of(item)["ideas"] {
-                                            <IdeaCard key={idea.title} idea={idea} />
+                                            <IdeaCard
+                                                key={idea.title}
+                                                idea={idea}
+                                                used={idea.title in app_of(item)["ideas_used"]}
+                                                onUse={lambda (title: str) { toggle_idea(item, title); }}
+                                            />
                                         }}
                                     </ul>}
                                 </section>

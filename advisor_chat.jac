@@ -7,6 +7,7 @@ page and the bubble show the same chat.
 
 import from "@jac/runtime" { Link }
 import from .advisor { AdvisorChoice, AdvisorResult, ask_advisor }
+import from .matching { Profile }
 import from .profile_data { profile_from }
 import from .list_store { refresh_saved, store_saved }
 import from .components.spinner { Spinner }
@@ -46,6 +47,21 @@ glob STARTERS: list[str] = [
 ];
 
 glob CONVERSATION_KEY: str = "jaccepted.advisor";
+
+glob WEIGHT_NAMES: dict[str, str] = {
+    "price": "cost", "location": "location", "distance": "distance", "setting": "campus setting",
+    "size": "size", "type": "public/private", "outcomes": "graduation and earnings", "major": "your major",
+    "religion": "religious affiliation", "hbcu": "HBCU", "womens": "women's colleges"
+};
+
+"""Custom priorities in words, for example "cost ×2 · location ×0"."""
+def weights_text(weights: dict[str, float]) -> str {
+    parts: list[str] = [];
+    for key in Object.keys(weights) {
+        parts.append((WEIGHT_NAMES[key] or key) + " ×" + str(weights[key]));
+    }
+    return " · ".join(parts);
+}
 
 glob THINKING: list[str] = [
     "Reading your request…",
@@ -139,11 +155,14 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         missing: bool = False,
         questions: list[str] = [],
         answers: list[AdvisorResult] = [],
+        weights: dict[str, float] = {},
+        weights_saved: bool = False,
+        live_steps: list[str] = [],
         saved: list[dict[str, any]] = [];
 
     def remember -> None {
         try {
-            localStorage.setItem(CONVERSATION_KEY, JSON.stringify({"questions": questions, "answers": answers}));
+            localStorage.setItem(CONVERSATION_KEY, JSON.stringify({"questions": questions, "answers": answers, "weights": weights}));
         } except Exception {
             return;
         }
@@ -159,6 +178,9 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
                 if saved_questions and saved_answers and len(saved_questions) == len(saved_answers) {
                     questions = saved_questions;
                     answers = saved_answers;
+                }
+                if data["weights"] {
+                    weights = data["weights"] as dict[str, float];
                 }
             }
         } except Exception {
@@ -196,6 +218,51 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         timer = None;
     }
 
+    """Ask through the streaming endpoint, showing each real step as it arrives.
+    Returns None if streaming isn't available, so the caller can fall back."""
+    async def ask_live(question: str, profile: Profile) -> any {
+        resp = await fetch("/function/ask_advisor_live", {
+            "method": "POST",
+            "headers": {"Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem("jac_token") or "")},
+            "body": JSON.stringify({"question": question, "profile": profile, "current_list": current_list()})
+        });
+        if not resp.ok or not resp.body {
+            return None;
+        }
+        reader = resp.body.getReader();
+        decoder = new(TextDecoder);
+        nl = chr(10);
+        buf = "";
+        shown: list[str] = [];
+        final: any = None;
+        reading = True;
+        while reading {
+            part = await reader.read();
+            if part.done {
+                reading = False;
+                continue;
+            }
+            buf = buf + decoder.decode(part.value, {"stream": True});
+            frames = buf.split(nl + nl);
+            buf = frames.pop();
+            for frame in frames {
+                for line in frame.split(nl) {
+                    if line.startswith("data: ") and not frame.startswith("event:") {
+                        payload: any = JSON.parse(line[6:]);
+                        if payload and payload["step"] {
+                            shown = shown + [payload["step"] as str];
+                            live_steps = shown;
+                            scroll_down();
+                        } elif payload and payload["result"] {
+                            final = payload["result"];
+                        }
+                    }
+                }
+            }
+        }
+        return final;
+    }
+
     async def send(text: str) -> None {
         question = text.strip();
         if not question or thinking {
@@ -213,16 +280,37 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         }
         draft = "";
         thinking = True;
+        live_steps = [];
         start_ticking();
         questions = questions + [question];
         scroll_down();
         answer = AdvisorResult(ok=False, message="The advisor is unavailable right now. Explore still works.");
         try {
-            answer = await ask_advisor(question, profile_from(JSON.parse(raw)), current_list());
+            profile = profile_from(JSON.parse(raw));
+            if len(Object.keys(weights)) > 0 {
+                profile.weights = weights;
+            }
+            streamed: any = None;
+            try {
+                streamed = await ask_live(question, profile);
+            } except Exception {
+                streamed = None;
+            }
+            if streamed {
+                answer = streamed;
+            } else {
+                answer = await ask_advisor(question, profile, current_list());
+            }
         } except Exception {
             answer = AdvisorResult(ok=False, message="The advisor is unavailable right now. Explore still works.");
         }
         answers = answers + [answer];
+        if answer.ok and answer.weights {
+            if JSON.stringify(answer.weights) != JSON.stringify(weights) {
+                weights_saved = False;
+            }
+            weights = answer.weights;
+        }
         thinking = False;
         stop_ticking();
         remember();
@@ -290,6 +378,31 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         remember();
     }
 
+    def write_profile_weights(value: dict[str, float]) -> None {
+        try {
+            raw = localStorage.getItem("jaccepted.intake");
+            if raw {
+                data: any = JSON.parse(raw);
+                data["weights"] = value;
+                localStorage.setItem("jaccepted.intake", JSON.stringify(data));
+            }
+        } except Exception {
+            return;
+        }
+    }
+
+    def save_weights -> None {
+        write_profile_weights(weights);
+        weights_saved = True;
+    }
+
+    def reset_weights -> None {
+        weights = {};
+        weights_saved = False;
+        write_profile_weights({});
+        remember();
+    }
+
     def on_submit(e: any) -> None {
         e.preventDefault();
         send(draft);
@@ -327,6 +440,15 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
                     <button type="button" style={FOLLOW_UP} onClick={start_over} disabled={thinking}>Start over</button>
                 </div>
             }}
+            {if len(Object.keys(weights)) > 0 {
+                <div style={{"display": "flex", "flexWrap": "wrap", "alignItems": "center", "gap": "0.5rem", "padding": "0.6rem 0.8rem", "border": "1px solid var(--border)", "borderRadius": "12px", "background": "var(--tint)", "animation": "jac-rise 0.25s ease-out"}} role="status">
+                    <span style={{"flex": "1 1 12rem"}}>
+                        <strong style={{"color": "var(--accent-text)"}}>Custom priorities: </strong>{weights_text(weights)}
+                    </span>
+                    <button type="button" style={FOLLOW_UP} onClick={save_weights} disabled={weights_saved}>{"Saved to profile ✓" if weights_saved else "Save to profile"}</button>
+                    <button type="button" style={FOLLOW_UP} onClick={reset_weights}>Reset</button>
+                </div>
+            }}
             {if missing {
                 <p style={BANNER} role="alert">
                     I need your profile first. <Link style={LINK} to="/intake">Fill out your profile</Link>, then come back.
@@ -352,13 +474,20 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
                         <span style={{"display": "inline-flex", "borderRadius": "10px", "animation": "jac-pulse 1.6s ease-in-out infinite"}}>
                             <LogoMark size={28 if compact else 32} />
                         </span>
-                        <div style={STEP_BOX | {"display": "flex", "alignItems": "center", "gap": "0.7rem", "boxShadow": "var(--glow)"}}>
-                            <span style={{"color": "var(--accent-text)", "display": "inline-flex"}}>
-                                <Spinner size={22} label="Thinking" />
-                            </span>
-                            <div>
-                                <strong style={{"color": "var(--accent-text)"}}>{status}</strong>
-                                {not compact and <p style={{"margin": "0.2rem 0 0", "color": "var(--muted)", "fontSize": "0.9rem"}}>This can take up to a minute.</p>}
+                        <div style={STEP_BOX | {"flex": "1", "minWidth": "0", "boxShadow": "var(--glow)"}}>
+                            {len(live_steps) > 0 and <ol style={STEP_LIST | {"margin": "0 0 0.5rem"}}>
+                                {for step in live_steps {
+                                    <li key={step} style={{"animation": "jac-rise 0.3s ease-out"}}>{"✓ " + step}</li>
+                                }}
+                            </ol>}
+                            <div style={{"display": "flex", "alignItems": "center", "gap": "0.7rem"}}>
+                                <span style={{"color": "var(--accent-text)", "display": "inline-flex"}}>
+                                    <Spinner size={22} label="Thinking" />
+                                </span>
+                                <div>
+                                    <strong style={{"color": "var(--accent-text)"}}>{"Thinking about your picks…" if len(live_steps) > 0 else status}</strong>
+                                    {not compact and len(live_steps) == 0 and <p style={{"margin": "0.2rem 0 0", "color": "var(--muted)", "fontSize": "0.9rem"}}>This usually takes about 10 seconds.</p>}
+                                </div>
                             </div>
                         </div>
                     </div>

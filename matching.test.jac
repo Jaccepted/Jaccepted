@@ -290,3 +290,32 @@ test "no loaded Common Data Set rate is above 100%" {
         }
     }
 }
+
+test "home state works with the full name the form sends" {
+    assert state_code("Michigan") == "MI";
+    assert state_code("mi") == "MI";
+    profile = Profile(gpa_unweighted="3.4", test_plan="none", undecided="yes", home_state="Michigan");
+    schools = [item for item in all_matches(match_profile(profile)) if item.name == "Central Michigan University"];
+    assert len(schools) == 1 and any("home state" in reason.lower() for reason in schools[0].reasons);
+}
+
+test "weights multiply a preference and are capped" {
+    plain = Profile(price_importance="nice");
+    assert weight_for(plain, "price", "nice") == 1.0;
+    assert weight_for(Profile(weights={"price": 2.0}), "price", "nice") == 2.0;
+    assert weight_for(Profile(weights={"price": 99.0}), "price", "nice") == MAX_WEIGHT;
+    assert weight_for(Profile(weights={"price": -4.0}), "price", "nice") == 0.0;
+    # Raising a "don't care" preference turns it on.
+    assert weight_for(Profile(weights={"price": 2.0}), "price", "ignore") == 2.0;
+    assert weight_for(Profile(weights={"price": 0.5}), "price", "ignore") == 0.0;
+}
+
+test "weighting cost more moves cheaper colleges up the fit ranking" {
+    base = Profile(gpa_unweighted="3.8", test_plan="sat", sat_total="1400", major1="Computer Science", regions="Midwest", location_importance="nice", max_price="20000", price_importance="nice", income_bracket="48001-75000");
+    heavy = Profile(gpa_unweighted="3.8", test_plan="sat", sat_total="1400", major1="Computer Science", regions="Midwest", location_importance="nice", max_price="20000", price_importance="nice", income_bracket="48001-75000", weights={"price": 3.0, "location": 0.0});
+    def cheap_share(profile: Profile) -> float {
+        top = sorted(passing_colleges(profile), key=lambda (item: CollegeMatch) -> int { return -item.fit; })[:40];
+        return len([item for item in top if item.net_price is not None and item.net_price <= 20000]) / len(top);
+    }
+    assert cheap_share(heavy) >= cheap_share(base);
+}

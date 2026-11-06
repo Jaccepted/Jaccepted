@@ -7,9 +7,12 @@ number it cites comes from these tools rather than from the model.
 
 import os;
 import re;
+import threading;
+import time;
 import uuid;
+import from typing { Generator }
 import from jaclang.byllm.lib { Model }
-import from .matching { COLLEGES, CollegeMatch, Profile, money, passing_colleges, percent }
+import from .matching { COLLEGES, MAX_WEIGHT, CollegeMatch, Profile, money, passing_colleges, percent }
 import from .ai_quota { LIMIT_MESSAGE, use_ai_request }
 
 # The advisor's model. Tests swap in a MockLLM; JACCEPTED_MODEL overrides the
@@ -19,6 +22,8 @@ glob advisor_llm: any = Model(model_name=os.environ.get("JACCEPTED_MODEL", "anth
 glob MAX_REQUEST_CHARS: int = 600;
 glob MAX_PICKS: int = 15;
 glob TOOL_LIMIT: int = 15;
+# Colleges per bucket handed to the agent up front, so a simple request needs no search.
+glob STARTER_PER_BUCKET: int = 6;
 glob BUCKETS: list[str] = ["reach", "target", "likely"];
 glob DEFAULT_FOLLOW_UPS: list[str] = ["Add more likely schools", "Make the list cheaper", "Show only public colleges"];
 
@@ -28,11 +33,24 @@ glob BY_ID: dict[str, dict[str, any]] = {str(row["unitid"]): row for row in COLL
 # id and tool results only, never the raw profile (ZIP, income, and so on).
 glob SESSIONS: dict[str, list[CollegeMatch]] = {};
 
+# The profile behind each request, so adjust_weights can re-score. Never shown to the model.
+glob PROFILES: dict[str, Profile] = {};
+
+# Plain names for the preferences the advisor can re-weight.
+glob WEIGHT_LABELS: dict[str, str] = {
+    "price": "cost", "location": "location", "distance": "distance", "setting": "campus setting",
+    "size": "size", "type": "public/private", "outcomes": "graduation and earnings", "major": "your major"
+};
+
 # What the agent did on each request, in plain English, so the page can show its work.
 glob STEPS: dict[str, list[str]] = {};
 
+# When each request started, for the timing log.
+glob STARTED: dict[str, float] = {};
+
 def log_step(request_id: str, text: str) -> None {
     STEPS[request_id] = STEPS.get(request_id, []) + [text];
+    print("advisor +" + str(round(time.perf_counter() - STARTED.get(request_id, time.perf_counter()), 1)) + "s:", text);
 }
 
 """One college as the advisor's tools describe it."""
@@ -103,7 +121,8 @@ def missing_last(value: float | None) -> tuple[int, float] {
 
 obj Advisor {
     has request_id: str,
-        current_list: list[str] = [];
+        current_list: list[CollegeCard] = [],
+        starting_options: list[CollegeCard] = [];
 
     def matches -> list[CollegeMatch] {
         return SESSIONS.get(self.request_id, []);
@@ -146,12 +165,24 @@ obj Advisor {
             items = sorted(items, key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
         }
         count = max(1, min(limit, TOOL_LIMIT));
+        if bucket.lower() not in BUCKETS {
+            # One call covers all three buckets: up to `count` of each.
+            mixed: list[CollegeMatch] = [];
+            for name in BUCKETS {
+                mixed = mixed + [item for item in items if item.bucket == name][:count];
+            }
+            found = len(items);
+            items = mixed;
+            count = len(mixed);
+        } else {
+            found = len(items);
+        }
         filters = [part for part in [bucket.lower() if bucket.lower() in BUCKETS else "", region.strip(), state.strip().upper(), college_type.lower() if college_type.lower() in ["public", "private"] else ""] if part];
         described = " ".join(filters) + " colleges" if filters else "colleges";
         if max_net_price > 0 {
             described = described + " under " + money(float(max_net_price)) + " a year";
         }
-        log_step(self.request_id, "Searched " + described + ": " + str(len(items)) + " found.");
+        log_step(self.request_id, "Searched " + described + ": " + str(found) + " found.");
         return [card(item) for item in items[:count]];
     }
 
@@ -198,32 +229,79 @@ obj Advisor {
         return text;
     }
 
+    def adjust_weights(
+        price: float,
+        location: float,
+        distance: float,
+        setting: float,
+        size: float,
+        college_type: float,
+        outcomes: float,
+        major: float
+    ) -> list[CollegeCard] {
+        profile = PROFILES[self.request_id];
+        asked = {"price": price, "location": location, "distance": distance, "setting": setting, "size": size, "type": college_type, "outcomes": outcomes, "major": major};
+        weights: dict[str, float] = dict(profile.weights) if profile.weights else {};
+        changes: list[str] = [];
+        for (key, value) in asked.items() {
+            factor = round(max(0.0, min(MAX_WEIGHT, float(value))), 2);
+            if factor != weights.get(key, 1.0) {
+                changes.append(WEIGHT_LABELS[key] + " ×" + str(factor).rstrip("0").rstrip("."));
+            }
+            if factor == 1.0 {
+                weights.pop(key, None);
+            } else {
+                weights[key] = factor;
+            }
+        }
+        profile.weights = weights;
+        SESSIONS[self.request_id] = passing_colleges(profile);
+        log_step(self.request_id, ("Re-weighted: " + ", ".join(changes) if changes else "Kept your weights") + ". Re-scored " + str(len(SESSIONS[self.request_id])) + " colleges.");
+        ranked_fit = sorted(SESSIONS[self.request_id], key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
+        best: list[CollegeCard] = [];
+        for name in BUCKETS {
+            best = best + [card(item) for item in ranked_fit if item.bucket == name][:STARTER_PER_BUCKET];
+        }
+        return best;
+    }
+
     def plan(request: str) -> AdvisorPlan by advisor_llm(
-        tools=[self.find_colleges, self.college_facts, self.check_balance],
+        tools=[self.find_colleges, self.college_facts, self.check_balance, self.adjust_weights],
         max_react_iterations=12
     );
 }
 
-sem Advisor.find_colleges = "Search the colleges that already pass this student's must-haves. Returns up to `limit` colleges.";
-sem Advisor.find_colleges.bucket = "reach, target, likely, or an empty string for all buckets.";
+sem Advisor.find_colleges = "Search the colleges that already pass this student's must-haves. With an empty bucket, returns up to `limit` colleges from each of reach, target and likely in one call.";
+sem Advisor.find_colleges.bucket = "reach, target or likely, or an empty string for all three at once.";
 sem Advisor.find_colleges.region = "Northeast, Midwest, South, West, or an empty string for any region.";
 sem Advisor.find_colleges.state = "Two-letter state code such as MI, or an empty string for any state.";
 sem Advisor.find_colleges.college_type = "public, private, or an empty string for either.";
 sem Advisor.find_colleges.max_net_price = "Maximum yearly net price in dollars, or 0 for no limit.";
 sem Advisor.find_colleges.sort_by = "fit (best match first), price (cheapest first), admit (most selective first), or distance (closest first).";
-sem Advisor.find_colleges.limit = "How many colleges to return, 1 to 15.";
-sem Advisor.college_facts = "Details for one college from find_colleges: enrollment, SAT range, graduation rate, earnings and net price.";
+sem Advisor.find_colleges.limit = "How many colleges to return (per bucket when bucket is empty), 1 to 15.";
+sem Advisor.college_facts = "Extra details for one college (enrollment, SAT range, graduation rate, earnings). Only call it when the request needs a detail the cards don't have.";
 sem Advisor.college_facts.unitid = "The college's unitid from find_colleges.";
-sem Advisor.check_balance = "Count how many of the given colleges are reach, target and likely, and flag any ID that is not in the student's matches.";
+sem Advisor.check_balance = "Count how many of the given colleges are reach, target and likely. Optional: the cards already show each college's bucket.";
 sem Advisor.check_balance.unitids = "The unitids you plan to recommend.";
 sem Advisor.plan = """Build or refine a college list for a high-school student from their request.
-Call find_colleges to get candidates, and recommend only colleges it returned, by unitid.
+starting_options already holds the best-fitting colleges in each bucket, and current_list holds the student's list so far. If they cover the request, answer straight away without calling any tools.
+Call find_colleges only when the request needs something they don't cover, such as a state, region, price limit or sort order. One call with an empty bucket covers all three buckets.
+Recommend only colleges from these lists or from find_colleges, by unitid.
 Unless the student asks for something else, aim for 8 to 12 colleges with at least 2 likely and no more reach than target plus likely.
-Call check_balance on your final picks before answering.
-Mention only facts and numbers the tools returned.
+Mention only facts and numbers from the cards or tools.
 Reach, target and likely are estimates from public data: never state a chance of admission or call any college a sure thing.""";
 sem Advisor.plan.request = "What the student asked for, in their own words.";
-sem Advisor.current_list = "unitids on the student's working list from earlier in the conversation. Keep them unless the request asks to change them; use college_facts to recall what they are.";
+sem Advisor.adjust_weights = "Change how much each preference counts in the fit score, when the student says something matters more or less (\"cost matters most\", \"I don't care where it is\"). Re-scores every college and returns the new best fits in each bucket. Buckets don't change; only the fit order does.";
+sem Advisor.adjust_weights.price = "Multiplier for cost: 1 = no change, 2 = twice as important, 0.5 = half, 0 = ignore. At most 3.";
+sem Advisor.adjust_weights.location = "Multiplier for region, same scale.";
+sem Advisor.adjust_weights.distance = "Multiplier for distance from home, same scale.";
+sem Advisor.adjust_weights.setting = "Multiplier for urban/suburban/rural setting, same scale.";
+sem Advisor.adjust_weights.size = "Multiplier for campus size, same scale.";
+sem Advisor.adjust_weights.college_type = "Multiplier for public vs private, same scale.";
+sem Advisor.adjust_weights.outcomes = "Multiplier for graduation rate and earnings, same scale.";
+sem Advisor.adjust_weights.major = "Multiplier for offering the student's major, same scale.";
+sem Advisor.current_list = "The student's working list from earlier in the conversation. Keep these colleges unless the request asks to change them.";
+sem Advisor.starting_options = "The best-fitting colleges in each bucket for this student, ready to recommend without a search.";
 
 """A recommended college with its data and the advisor's reason."""
 obj AdvisorChoice {
@@ -245,14 +323,23 @@ obj AdvisorResult {
         picks: list[AdvisorChoice] = [],
         steps: list[str] = [],
         follow_ups: list[str] = [],
+        weights: dict[str, float] = {},
         reach: int = 0,
         target: int = 0,
         likely: int = 0;
 }
 
-"""A pick's reason without a leading "Reach:" style label; the page shows the bucket."""
+"""A pick's reason as one sentence, without a leading "Reach:" style label; the page shows the bucket."""
 def clean_why(text: str) -> str {
-    return re.sub(r"^\s*(reach|target|likely)\s*[:.\-–—]\s*", "", text.strip(), flags=re.IGNORECASE);
+    unlabeled = re.sub(r"^\s*(reach|target|likely)\s*[:.\-–—]\s*", "", text.strip(), flags=re.IGNORECASE);
+    # One sentence: the college page has the rest.
+    return re.split(r"(?<=[.!?])\s+", " ".join(unlabeled.split()))[0];
+}
+
+"""The advisor's message cut to three sentences, on one line: the picks carry the details."""
+def short_message(text: str) -> str {
+    sentences = re.split(r"(?<=[.!?])\s+", " ".join(text.split()));
+    return " ".join(sentences[:3]);
 }
 
 """Up to three tap-to-send requests. Questions to the student are dropped and defaults fill the gap."""
@@ -294,7 +381,7 @@ def grounded(plan: AdvisorPlan, matches: list[CollegeMatch]) -> AdvisorResult {
         ));
     }
     return AdvisorResult(
-        message=plan.message,
+        message=short_message(plan.message),
         picks=picks,
         follow_ups=clean_follow_ups(plan.follow_ups),
         reach=len([pick for pick in picks if pick.bucket == "reach"]),
@@ -303,38 +390,122 @@ def grounded(plan: AdvisorPlan, matches: list[CollegeMatch]) -> AdvisorResult {
     );
 }
 
-"""Ask the advisor for a college list. Signed-in students only, with a daily cap, to keep AI costs in check.
+def forget(request_id: str) -> None {
+    SESSIONS.pop(request_id, None);
+    STEPS.pop(request_id, None);
+    STARTED.pop(request_id, None);
+    PROFILES.pop(request_id, None);
+}
 
-The parameter is not called `request`: that name is taken by the web request on the server.
-"""
-def:protect ask_advisor(question: str, profile: Profile, current_list: list[str] = []) -> AdvisorResult {
+"""Set up a request: check it, find the student's matches, and count it against the daily cap.
+Returns the request id and the kept current list, or a result to send back straight away.
+Runs in the web request itself, because the daily cap is stored on the student's account."""
+def prepare(question: str, profile: Profile, current_list: list[str]) -> tuple[str, list[str], AdvisorResult | None] {
     text = question.strip()[:MAX_REQUEST_CHARS];
     if not text {
-        return AdvisorResult(ok=False, message="Tell the advisor what kind of list you want.");
+        return ("", [], AdvisorResult(ok=False, message="Tell the advisor what kind of list you want."));
     }
     request_id = str(uuid.uuid4());
+    STARTED[request_id] = time.perf_counter();
+    PROFILES[request_id] = profile;
     SESSIONS[request_id] = passing_colleges(profile);
+    if not SESSIONS[request_id] {
+        forget(request_id);
+        return ("", [], AdvisorResult(ok=False, message="No colleges pass your must-haves yet. Loosen one in your profile and try again."));
+    }
+    known = [item.unitid for item in SESSIONS[request_id]];
+    keep = [unitid for unitid in current_list if unitid in known][:MAX_PICKS];
+    # Counted only once the model is about to run, so refused requests are free.
+    if not use_ai_request() {
+        forget(request_id);
+        return ("", [], AdvisorResult(ok=False, message=LIMIT_MESSAGE));
+    }
+    if keep {
+        log_step(request_id, "Started from your current list of " + str(len(keep)) + (" college." if len(keep) == 1 else " colleges."));
+    }
+    return (request_id, keep, None);
+}
+
+"""Run the agent for a prepared request. Safe to run in a background thread."""
+def run_advisor(request_id: str, question: str, keep: list[str]) -> AdvisorResult {
     try {
-        if not SESSIONS[request_id] {
-            return AdvisorResult(ok=False, message="No colleges pass your must-haves yet. Loosen one in your profile and try again.");
+        profile = PROFILES[request_id];
+        by_id = {item.unitid: item for item in SESSIONS[request_id]};
+        ranked_fit = sorted(SESSIONS[request_id], key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
+        starters: list[CollegeCard] = [];
+        for name in BUCKETS {
+            starters = starters + [card(item) for item in ranked_fit if item.bucket == name][:STARTER_PER_BUCKET];
         }
-        known = [item.unitid for item in SESSIONS[request_id]];
-        keep = [unitid for unitid in current_list if unitid in known][:MAX_PICKS];
-        if keep {
-            log_step(request_id, "Started from your current list of " + str(len(keep)) + (" college." if len(keep) == 1 else " colleges."));
-        }
-        # Counted only once the model is about to run, so refused requests are free.
-        if not use_ai_request() {
-            return AdvisorResult(ok=False, message=LIMIT_MESSAGE);
-        }
-        result = grounded(Advisor(request_id=request_id, current_list=keep).plan(text), SESSIONS[request_id]);
+        log_step(request_id, "Reviewed your " + str(len(starters)) + " best-fitting options across reach, target and likely.");
+        advisor = Advisor(request_id=request_id, current_list=[card(by_id[unitid]) for unitid in keep], starting_options=starters);
+        result = grounded(advisor.plan(question.strip()[:MAX_REQUEST_CHARS]), SESSIONS[request_id]);
+        log_step(request_id, "Checked the balance: " + str(result.reach) + " reach, " + str(result.target) + " target, " + str(result.likely) + " likely.");
         result.steps = STEPS.get(request_id, []);
+        result.weights = dict(profile.weights) if profile.weights else {};
         return result;
     } except Exception as err {
         print("advisor failed:", type(err).__name__, err);
         return AdvisorResult(ok=False, message="The advisor is unavailable right now. Explore still works.");
     } finally {
-        SESSIONS.pop(request_id, None);
-        STEPS.pop(request_id, None);
+        forget(request_id);
     }
+}
+
+"""Ask the advisor for a college list. Signed-in students only, with a daily cap, to keep AI costs in check.
+
+The parameter is not called `request`: that name is taken by the web request on the server.
+"""
+def:protect ask_advisor(question: str, profile: Profile, current_list: list[str] = []) -> AdvisorResult {
+    (request_id, keep, refused) = prepare(question, profile, current_list);
+    if refused is not None {
+        return refused;
+    }
+    return run_advisor(request_id, question, keep);
+}
+
+"""A result as plain JSON for the streaming endpoint."""
+def result_json(result: AdvisorResult) -> dict[str, any] {
+    return {
+        "ok": result.ok,
+        "message": result.message,
+        "picks": [{"unitid": pick.unitid, "name": pick.name, "city": pick.city, "state": pick.state, "bucket": pick.bucket, "fit": pick.fit, "admit_rate": pick.admit_rate, "net_price": pick.net_price, "why": pick.why} for pick in result.picks],
+        "steps": result.steps,
+        "follow_ups": result.follow_ups,
+        "weights": result.weights,
+        "reach": result.reach,
+        "target": result.target,
+        "likely": result.likely
+    };
+}
+
+"""Like ask_advisor, but streams each step the agent takes as it happens, then the answer.
+Frames are {"step": "..."} and finally {"result": {...}}."""
+def:protect ask_advisor_live(question: str, profile: Profile, current_list: list[str] = []) -> None {
+    (request_id, keep, refused) = prepare(question, profile, current_list);
+
+    def stream -> Generator[dict[str, any], None, None] {
+        if refused is not None {
+            yield {"result": result_json(refused)};
+            return;
+        }
+        done: dict[str, AdvisorResult] = {};
+        worker = threading.Thread(target=lambda { done["result"] = run_advisor(request_id, question, keep); }, daemon=True);
+        worker.start();
+        sent = 0;
+        while worker.is_alive() {
+            steps = STEPS.get(request_id, []);
+            while sent < len(steps) {
+                yield {"step": steps[sent]};
+                sent = sent + 1;
+            }
+            time.sleep(0.25);
+        }
+        result = done.get("result", AdvisorResult(ok=False, message="The advisor is unavailable right now. Explore still works."));
+        while sent < len(result.steps) {
+            yield {"step": result.steps[sent]};
+            sent = sent + 1;
+        }
+        yield {"result": result_json(result)};
+    }
+    report stream();
 }

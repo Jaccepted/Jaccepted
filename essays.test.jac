@@ -31,7 +31,7 @@ test "the college brief only lists majors the college offers" {
 
 test "essay ideas run through the model with the rules, the notes and the check tool" {
     llm = MockLLM(outputs=[
-        MockToolCall(tool="check_idea", args={"idea": "You could write about rebuilding the robot arm and how it led you to CS."}),
+        MockToolCall(tool="check_ideas", args={"ideas": ["You could write about rebuilding the robot arm and how it led you to CS."]}),
         MockToolCall(tool="finish_tool", args={"final_output": {
             "angles": [
                 {"title": "The robot arm", "essay_type": "Why this major", "idea": "You could write about rebuilding the robot arm and how it led you to CS.", "questions": ["What broke?"], "avoid": "Listing awards."},
@@ -47,7 +47,7 @@ test "essay ideas run through the model with the rules, the notes and the check 
     sent = str(llm.sent("messages"));
     assert "Never write essay text" in sent;
     assert "Rebuilt our robot arm" in sent;
-    assert "check_idea" in str(llm.sent("tools"));
+    assert "check_ideas" in str(llm.sent("tools"));
 }
 
 test "check_idea flags drafted or long ideas" {
@@ -69,4 +69,19 @@ test "an unknown college is refused without calling the model" {
 
 test "the coach's note is cut to two sentences" {
     assert short_note("I only suggest ideas. I won't write essays. Look things up. Good luck.") == "I only suggest ideas. I won't write essays.";
+}
+
+test "check_ideas checks every idea in one call" {
+    assert check_ideas(["You could write about your garden.", "I love my garden."]) == "1. OK 2. Rewrite: this reads like essay text in the student's voice. Describe the idea in the second person instead.";
+}
+
+test "a focus limits the essay types" {
+    ideas = EssayIdeas(angles=[EssayAngle(title="X", essay_type="Common App: topic of your choice", idea="You could write about why their CS program fits your robotics work.")]);
+    kept = safe_ideas(ideas, ESSAY_FOCUS["why_college"]);
+    assert kept[0].essay_type == "Why this college";
+}
+
+test "the college brief carries verified facts" {
+    brief = brief_for("170976", ["Computer Science"]);
+    assert brief is not None and any("graduation rate" in fact for fact in brief.facts);
 }
