@@ -17,6 +17,7 @@ import from .intake_rules { parse_num }
 glob SHOW_PER_BUCKET: int = 25;
 glob MIN_APPLICANTS: int = 50;
 glob SHORTLIST: dict[str, int] = {"reach": 3, "target": 4, "likely": 3};
+glob SHORTLIST_MAX: int = 4;
 
 glob PRICE_KEYS: dict[str, str] = {
     "0-30000": "net_price_0_30k",
@@ -852,6 +853,42 @@ sort is one of fit (default), admit, price, distance, or name.
 """
 def:pub match_colleges(profile: Profile, query: str = "", sort: str = "fit") -> MatchResult {
     return match_profile(profile, query, sort);
+}
+
+"""The shortlist colleges from a result, balanced across Reach, Target and Likely.
+
+When limit is smaller than the shortlist, it takes one from each bucket in
+turn so no bucket is left out, then returns them Reach, Target, Likely.
+"""
+def balanced_picks(result: MatchResult, limit: int) -> list[CollegeMatch] {
+    pools = [
+        [item for item in result.reach if item.shortlist],
+        [item for item in result.target if item.shortlist],
+        [item for item in result.likely if item.shortlist]
+    ];
+    chosen: list[CollegeMatch] = [];
+    position = 0;
+    while len(chosen) < limit and position < SHORTLIST_MAX {
+        for pool in pools {
+            if position < len(pool) and len(chosen) < limit {
+                chosen.append(pool[position]);
+            }
+        }
+        position = position + 1;
+    }
+    order = {"reach": 0, "target": 1, "likely": 2};
+    chosen.sort(key=lambda (item: CollegeMatch) -> tuple[int, int] { return (order[item.bucket], -item.fit); });
+    return chosen;
+}
+
+"""A quick rule-based starting list, with no AI call.
+
+The advisor chat shows this while the AI works, so a student sees real
+matches within a second or two. It is the same shortlist as the Explore page
+(3 reach, 4 target, 3 likely at most), best fits first inside each bucket.
+"""
+def:pub starting_list(profile: Profile, limit: int = 10) -> list[CollegeMatch] {
+    return balanced_picks(match_profile(profile), max(1, min(limit, 10)));
 }
 
 glob DETAIL_FIELDS: list[str] = [
