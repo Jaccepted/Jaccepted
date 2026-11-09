@@ -10,6 +10,7 @@ import from .results { dollars }
 import from .profile_data { profile_from }
 import from .list_store { refresh_saved }
 import from .components.nav { TopNav }
+import from .components.skeleton { DetailSkeleton }
 import from .theme {
     BANNER,
     BADGE,
@@ -320,7 +321,10 @@ def:pub CollegeView -> JsxElement {
         <div style={PAGE}>
             <p><Link style={LINK} to="/results">← Back to results</Link></p>
             {if status == "loading" {
-                <p style={HINT} role="status">Loading college…</p>
+                <>
+                    <p style={HINT} role="status">Loading college…</p>
+                    <DetailSkeleton />
+                </>
             }}
             {if status == "error" {
                 <p style={BANNER} role="alert">{message}</p>

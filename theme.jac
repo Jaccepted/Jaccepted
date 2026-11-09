@@ -44,6 +44,12 @@ glob:pub THEME_CSS: str = """
 @keyframes jac-spin { to { transform: rotate(360deg); } }
 @keyframes jac-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(63, 163, 124, 0.0); } 50% { box-shadow: 0 0 22px 4px rgba(63, 163, 124, 0.45); } }
 @keyframes jac-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes jac-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+[data-skeleton] { background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: jac-shimmer 1.6s ease-in-out infinite; border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    [data-skeleton] { animation: none; background: var(--surface-2); }
+}
 html, body { background: var(--bg); color: var(--text); }
 *:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--glow); }
 button, a, input, select, textarea { transition: box-shadow 0.2s, filter 0.2s, border-color 0.2s, background 0.2s; }
