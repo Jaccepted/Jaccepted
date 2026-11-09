@@ -4,12 +4,13 @@ import from "@jac/runtime" { Link, SignupResult, jacLogin, jacSignup, useNavigat
 import from .components.fields { TextField }
 import from .components.logo { Logo }
 import from .theme {
+    BACK_LINK,
     BANNER,
     CARD,
     EYEBROW,
     HINT,
     LEDE,
-    LINK,
+    LOGO_LINK,
     NAV,
     PAGE,
     PRIMARY,
@@ -78,7 +79,7 @@ def:pub LoginForm -> JsxElement {
 
     <div style={PAGE}>
         <header>
-            <Link to="/" style={{"textDecoration": "none"}} aria-label="Jaccepted home"><Logo size={36} /></Link>
+            <Link to="/" style={LOGO_LINK} aria-label="Jaccepted home"><Logo size={36} /></Link>
             <p style={LEDE | {"marginTop": "0.9rem"}}>Sign in to keep your profile and college list with your account.</p>
         </header>
         <main style={CARD}>
@@ -110,7 +111,7 @@ def:pub LoginForm -> JsxElement {
                     </button>
                     <Link style={SECONDARY} to="/signup">Create Account</Link>
                 </div>
-                <p style={HINT}><Link style={LINK} to="/">Back to home</Link></p>
+                <p style={HINT}><Link style={BACK_LINK} to="/">Back to home</Link></p>
             </div>
         </main>
     </div>
@@ -175,7 +176,7 @@ def:pub SignupForm -> JsxElement {
 
     <div style={PAGE}>
         <header>
-            <Link to="/" style={{"textDecoration": "none"}} aria-label="Jaccepted home"><Logo size={36} /></Link>
+            <Link to="/" style={LOGO_LINK} aria-label="Jaccepted home"><Logo size={36} /></Link>
         </header>
         <main style={CARD}>
             <h2 style={SECTION_TITLE | {"textAlign": "center"}}>Create Account</h2>
@@ -214,7 +215,7 @@ def:pub SignupForm -> JsxElement {
                     </button>
                     <Link style={SECONDARY} to="/login">Sign in</Link>
                 </div>
-                <p style={HINT}><Link style={LINK} to="/">Back to home</Link></p>
+                <p style={HINT}><Link style={BACK_LINK} to="/">Back to home</Link></p>
             </div>
         </main>
     </div>

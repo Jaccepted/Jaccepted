@@ -7,7 +7,7 @@ import from "@jac/runtime" { Link, jacLogout, useNavigate }
 import from .logo { Logo }
 import from .theme_toggle { ThemeToggle }
 import from .chat_bubble { ChatBubble }
-import from ..theme { TOPBAR, TOPBAR_INNER, TOPBAR_LINK, TOPBAR_LINK_ON, TOPBAR_LINKS }
+import from ..theme { LOGO_LINK, TOPBAR, TOPBAR_INNER, TOPBAR_LINK, TOPBAR_LINK_ON, TOPBAR_LINKS }
 
 # Per-student data kept in this browser. Cleared on sign out so the next person
 # on a shared computer starts fresh. The light/dark choice is kept.
@@ -43,7 +43,7 @@ def:pub TopNav(current: str, saved_count: int = -1) -> JsxElement {
     <>
         <header style={TOPBAR}>
             <div style={TOPBAR_INNER}>
-                <Link to="/advisor" style={{"textDecoration": "none"}} aria-label="Jaccepted home">
+                <Link to="/advisor" style={LOGO_LINK} aria-label="Jaccepted home">
                     <Logo size={36} />
                 </Link>
                 <div style={{"display": "flex", "alignItems": "center", "flexWrap": "wrap", "gap": "0.25rem 1rem"}}>
