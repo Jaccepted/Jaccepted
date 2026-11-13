@@ -9,6 +9,7 @@ import from .matching { CollegeMatch, MatchResult, Profile, match_colleges }
 import from .profile_data { profile_from }
 import from .list_store { refresh_dismissed, refresh_saved, store_dismissed, store_saved }
 import from .components.nav { TopNav }
+import from .components.skeleton { ResultsSkeleton }
 import from .theme {
     PICK_LIST,
     PICK_NAME,
@@ -216,7 +217,10 @@ def:pub ResultsView -> JsxElement {
             </header>
             <main style={STACK}>
                 {if status == "loading" {
-                    <p style={HINT} role="status">Matching colleges to your profile…</p>
+                    <>
+                        <p style={HINT} role="status">Matching colleges to your profile…</p>
+                        <ResultsSkeleton />
+                    </>
                 }}
                 {if status == "missing" {
                     <p style={BANNER} role="alert">
