@@ -9,7 +9,7 @@ import from "@jac/runtime" { Link }
 import from .advisor { AdvisorChoice, AdvisorResult, ask_advisor }
 import from .matching { Profile }
 import from .profile_data { profile_from }
-import from .list_store { refresh_saved, store_saved }
+import from .list_store { refresh_saved, store_intake, store_saved }
 import from .components.spinner { Spinner }
 import from .components.logo { LogoMark }
 import from .theme {
@@ -162,7 +162,7 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
 
     def remember -> None {
         try {
-            localStorage.setItem(CONVERSATION_KEY, JSON.stringify({"questions": questions, "answers": answers, "weights": weights}));
+            localStorage.setItem(CONVERSATION_KEY, JSON.stringify({"questions": questions, "answers": answers, "weights": weights, "weights_saved": weights_saved}));
         } except Exception {
             return;
         }
@@ -181,6 +181,9 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
                 }
                 if data["weights"] {
                     weights = data["weights"] as dict[str, float];
+                }
+                if data["weights_saved"] {
+                    weights_saved = True;
                 }
             }
         } except Exception {
@@ -384,7 +387,7 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
             if raw {
                 data: any = JSON.parse(raw);
                 data["weights"] = value;
-                localStorage.setItem("jaccepted.intake", JSON.stringify(data));
+                store_intake(JSON.stringify(data));
             }
         } except Exception {
             return;
@@ -446,7 +449,7 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
                         <strong style={{"color": "var(--accent-text)"}}>Custom priorities: </strong>{weights_text(weights)}
                     </span>
                     <button type="button" style={FOLLOW_UP} onClick={save_weights} disabled={weights_saved}>{"Saved to profile ✓" if weights_saved else "Save to profile"}</button>
-                    <button type="button" style={FOLLOW_UP} onClick={reset_weights}>Reset</button>
+                    <button type="button" style={FOLLOW_UP} onClick={reset_weights}>Undo</button>
                 </div>
             }}
             {if missing {

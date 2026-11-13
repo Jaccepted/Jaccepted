@@ -5,6 +5,7 @@ recommend colleges the rule-based matcher returns for this student, and every
 number it cites comes from these tools rather than from the model.
 """
 
+import math;
 import os;
 import re;
 import threading;
@@ -12,7 +13,18 @@ import time;
 import uuid;
 import from typing { Generator }
 import from jaclang.byllm.lib { Model }
-import from .matching { COLLEGES, MAX_WEIGHT, CollegeMatch, Profile, money, passing_colleges, percent }
+import from .matching {
+    COLLEGES,
+    MAX_WEIGHT,
+    MAX_WEIGHT_CHANGES,
+    MIN_WEIGHT,
+    CollegeMatch,
+    Profile,
+    money,
+    passing_colleges,
+    percent,
+    sanitize_weights
+}
 import from .ai_quota { LIMIT_MESSAGE, use_ai_request }
 
 # The advisor's model. Tests swap in a MockLLM; JACCEPTED_MODEL overrides the
@@ -48,9 +60,76 @@ glob STEPS: dict[str, list[str]] = {};
 # When each request started, for the timing log.
 glob STARTED: dict[str, float] = {};
 
+# One successful re-weight per student message, so a tool loop cannot walk every preference to the cap.
+glob WEIGHT_USED: dict[str, bool] = {};
+
 def log_step(request_id: str, text: str) -> None {
     STEPS[request_id] = STEPS.get(request_id, []) + [text];
     print("advisor +" + str(round(time.perf_counter() - STARTED.get(request_id, time.perf_counter()), 1)) + "s:", text);
+}
+
+def join_labels(labels: list[str]) -> str {
+    if len(labels) <= 1 {
+        return labels[0] if labels else "";
+    }
+    if len(labels) == 2 {
+        return labels[0] + " and " + labels[1];
+    }
+    text = "";
+    for (index, label) in enumerate(labels) {
+        if index == 0 {
+            text = label;
+        } elif index == len(labels) - 1 {
+            text = text + ", and " + label;
+        } else {
+            text = text + ", " + label;
+        }
+    }
+    return text;
+}
+
+"""What I did sentence, for example "Weighted cost higher than location." """
+def weight_change_sentence(before: dict[str, float], after: dict[str, float]) -> str {
+    order = ["price", "location", "distance", "setting", "size", "type", "outcomes", "major", "religion", "hbcu", "womens"];
+    higher: list[str] = [];
+    lower: list[str] = [];
+    for key in order {
+        prev = float(before.get(key, 1.0));
+        nxt = float(after.get(key, 1.0));
+        label = WEIGHT_LABELS.get(key, key);
+        if nxt > prev + 0.001 {
+            higher.append(label);
+        } elif nxt < prev - 0.001 {
+            lower.append(label);
+        }
+    }
+    if len(higher) == 1 and len(lower) == 1 {
+        return "Weighted " + higher[0] + " higher than " + lower[0] + ".";
+    }
+    parts: list[str] = [];
+    if higher {
+        parts.append("Weighted " + join_labels(higher) + " higher");
+    }
+    if lower {
+        if parts {
+            parts.append(join_labels(lower) + " lower");
+        } else {
+            parts.append("Weighted " + join_labels(lower) + " lower");
+        }
+    }
+    if not parts {
+        return "Weights stayed the same.";
+    }
+    return " and ".join(parts) + ".";
+}
+
+def top_cards(matches: list[CollegeMatch]) -> list[CollegeCard] {
+    ranked_fit = sorted(matches, key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
+    best: list[CollegeCard] = [];
+    for name in BUCKETS {
+        best = best + [card(item) for item in ranked_fit if item.bucket == name][:STARTER_PER_BUCKET];
+    }
+    return best;
 }
 
 """One college as the advisor's tools describe it."""
@@ -240,29 +319,39 @@ obj Advisor {
         major: float
     ) -> list[CollegeCard] {
         profile = PROFILES[self.request_id];
+        current = sanitize_weights(profile.weights);
+        if WEIGHT_USED.get(self.request_id, False) {
+            log_step(self.request_id, "Left your weights unchanged. They were already updated for this message.");
+            return top_cards(self.matches());
+        }
         asked = {"price": price, "location": location, "distance": distance, "setting": setting, "size": size, "type": college_type, "outcomes": outcomes, "major": major};
-        weights: dict[str, float] = dict(profile.weights) if profile.weights else {};
-        changes: list[str] = [];
+        proposed: dict[str, float] = dict(current);
+        pending: list[str] = [];
         for (key, value) in asked.items() {
-            factor = round(max(0.0, min(MAX_WEIGHT, float(value))), 2);
-            if factor != weights.get(key, 1.0) {
-                changes.append(WEIGHT_LABELS[key] + " ×" + str(factor).rstrip("0").rstrip("."));
+            number = float(value);
+            # 1 means "leave this preference alone", so a full argument list cannot wipe the others.
+            if not math.isfinite(number) or abs(number - 1.0) < 0.001 {
+                continue;
             }
-            if factor == 1.0 {
-                weights.pop(key, None);
-            } else {
-                weights[key] = factor;
+            factor = round(max(MIN_WEIGHT, min(MAX_WEIGHT, number)), 2);
+            if abs(factor - float(current.get(key, 1.0))) < 0.001 {
+                continue;
             }
+            pending.append(key);
+            proposed[key] = factor;
         }
-        profile.weights = weights;
+        if len(pending) > MAX_WEIGHT_CHANGES {
+            log_step(self.request_id, "Left your weights unchanged. Only 3 preferences can change at a time.");
+            return top_cards(self.matches());
+        }
+        if len(pending) == 0 {
+            return top_cards(self.matches());
+        }
+        profile.weights = sanitize_weights(proposed);
         SESSIONS[self.request_id] = passing_colleges(profile);
-        log_step(self.request_id, ("Re-weighted: " + ", ".join(changes) if changes else "Kept your weights") + ". Re-scored " + str(len(SESSIONS[self.request_id])) + " colleges.");
-        ranked_fit = sorted(SESSIONS[self.request_id], key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
-        best: list[CollegeCard] = [];
-        for name in BUCKETS {
-            best = best + [card(item) for item in ranked_fit if item.bucket == name][:STARTER_PER_BUCKET];
-        }
-        return best;
+        WEIGHT_USED[self.request_id] = True;
+        log_step(self.request_id, weight_change_sentence(current, profile.weights));
+        return top_cards(SESSIONS[self.request_id]);
     }
 
     def plan(request: str) -> AdvisorPlan by advisor_llm(
@@ -285,21 +374,22 @@ sem Advisor.check_balance = "Count how many of the given colleges are reach, tar
 sem Advisor.check_balance.unitids = "The unitids you plan to recommend.";
 sem Advisor.plan = """Build or refine a college list for a high-school student from their request.
 starting_options already holds the best-fitting colleges in each bucket, and current_list holds the student's list so far. If they cover the request, answer straight away without calling any tools.
+When the student says one preference should matter more or less than another, call adjust_weights once before recommending. Pass 1 for every preference they did not mention. Never invent or change a fit score or a reach/target/likely bucket; the tool re-scores and re-buckets.
 Call find_colleges only when the request needs something they don't cover, such as a state, region, price limit or sort order. One call with an empty bucket covers all three buckets.
 Recommend only colleges from these lists or from find_colleges, by unitid.
 Unless the student asks for something else, aim for 8 to 12 colleges with at least 2 likely and no more reach than target plus likely.
 Mention only facts and numbers from the cards or tools.
 Reach, target and likely are estimates from public data: never state a chance of admission or call any college a sure thing.""";
 sem Advisor.plan.request = "What the student asked for, in their own words.";
-sem Advisor.adjust_weights = "Change how much each preference counts in the fit score, when the student says something matters more or less (\"cost matters most\", \"I don't care where it is\"). Re-scores every college and returns the new best fits in each bucket. Buckets don't change; only the fit order does.";
-sem Advisor.adjust_weights.price = "Multiplier for cost: 1 = no change, 2 = twice as important, 0.5 = half, 0 = ignore. At most 3.";
-sem Advisor.adjust_weights.location = "Multiplier for region, same scale.";
-sem Advisor.adjust_weights.distance = "Multiplier for distance from home, same scale.";
-sem Advisor.adjust_weights.setting = "Multiplier for urban/suburban/rural setting, same scale.";
-sem Advisor.adjust_weights.size = "Multiplier for campus size, same scale.";
-sem Advisor.adjust_weights.college_type = "Multiplier for public vs private, same scale.";
-sem Advisor.adjust_weights.outcomes = "Multiplier for graduation rate and earnings, same scale.";
-sem Advisor.adjust_weights.major = "Multiplier for offering the student's major, same scale.";
+sem Advisor.adjust_weights = "Change how much each preference counts in the fit score, when the student says something matters more or less. Re-scores every college from the matcher; you do not set fit scores. Pass 1 for anything they did not mention. At most 3 preferences per call, and only one call per message. Values are kept between 0.25 and 3.";
+sem Advisor.adjust_weights.price = "Cost multiplier. 1 leaves it unchanged, 2 doubles it, 0.5 halves it. Kept between 0.25 and 3.";
+sem Advisor.adjust_weights.location = "Region multiplier, same scale. 1 leaves it unchanged.";
+sem Advisor.adjust_weights.distance = "Distance-from-home multiplier, same scale. 1 leaves it unchanged.";
+sem Advisor.adjust_weights.setting = "Campus-setting multiplier, same scale. 1 leaves it unchanged.";
+sem Advisor.adjust_weights.size = "Campus-size multiplier, same scale. 1 leaves it unchanged.";
+sem Advisor.adjust_weights.college_type = "Public/private multiplier, same scale. 1 leaves it unchanged.";
+sem Advisor.adjust_weights.outcomes = "Graduation and earnings multiplier, same scale. 1 leaves it unchanged.";
+sem Advisor.adjust_weights.major = "Intended-major multiplier, same scale. 1 leaves it unchanged.";
 sem Advisor.current_list = "The student's working list from earlier in the conversation. Keep these colleges unless the request asks to change them.";
 sem Advisor.starting_options = "The best-fitting colleges in each bucket for this student, ready to recommend without a search.";
 
@@ -395,6 +485,7 @@ def forget(request_id: str) -> None {
     STEPS.pop(request_id, None);
     STARTED.pop(request_id, None);
     PROFILES.pop(request_id, None);
+    WEIGHT_USED.pop(request_id, None);
 }
 
 """Set up a request: check it, find the student's matches, and count it against the daily cap.
@@ -407,6 +498,7 @@ def prepare(question: str, profile: Profile, current_list: list[str]) -> tuple[s
     }
     request_id = str(uuid.uuid4());
     STARTED[request_id] = time.perf_counter();
+    profile.weights = sanitize_weights(profile.weights);
     PROFILES[request_id] = profile;
     SESSIONS[request_id] = passing_colleges(profile);
     if not SESSIONS[request_id] {

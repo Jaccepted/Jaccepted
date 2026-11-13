@@ -1,6 +1,6 @@
 """Turn the intake draft saved in this browser into a matching Profile."""
 
-import from .matching { Profile }
+import from .matching { Profile, sanitize_weights }
 
 def saved(data: any, key: str, fallback: str) -> str {
     value = data[key];
@@ -8,6 +8,18 @@ def saved(data: any, key: str, fallback: str) -> str {
         return value as str;
     }
     return fallback;
+}
+
+def saved_weights(data: any) -> dict[str, float] {
+    try {
+        raw = data["weights"];
+        if not raw {
+            return {};
+        }
+        return sanitize_weights(raw);
+    } except Exception {
+        return {};
+    }
 }
 
 def:pub profile_from(data: any) -> Profile {
@@ -46,6 +58,6 @@ def:pub profile_from(data: any) -> Profile {
         income_bracket=saved(data, "income_bracket", ""),
         home_state=saved(data, "home_state", ""),
         home_zip=saved(data, "home_zip", ""),
-        weights=(data["weights"] if data["weights"] else {})
+        weights=saved_weights(data)
     );
 }

@@ -139,16 +139,53 @@ test "long advisor messages are cut to three sentences on one line" {
     assert short_message("One. Two!\n\nThree? Four. Five.") == "One. Two! Three?";
 }
 
+test "a cost-versus-location change is said in plain words" {
+    assert weight_change_sentence({}, {"price": 2.0, "location": 0.5}) == "Weighted cost higher than location.";
+}
+
 test "adjust_weights re-scores, caps, and reports the change" {
     profile = Profile(gpa_unweighted="3.9", test_plan="sat", sat_total="1450", major1="Computer Science", regions="Midwest", location_importance="nice", max_price="30000", price_importance="nice", income_bracket="48001-75000");
     request_id = "weights-test";
     PROFILES[request_id] = profile;
     SESSIONS[request_id] = passing_colleges(profile);
     STEPS[request_id] = [];
+    before_fit = {item.unitid: item.fit for item in SESSIONS[request_id]};
+    before_bucket = {item.unitid: item.bucket for item in SESSIONS[request_id]};
     best = Advisor(request_id=request_id).adjust_weights(2.0, 0.0, 1.0, 1.0, 1.0, 1.0, 9.0, 1.0);
     assert len(best) > 0;
-    assert PROFILES[request_id].weights == {"price": 2.0, "location": 0.0, "outcomes": MAX_WEIGHT};
-    assert STEPS[request_id][-1].startswith("Re-weighted: cost ×2, location ×0, graduation and earnings ×3.");
+    assert PROFILES[request_id].weights == {"price": 2.0, "location": MIN_WEIGHT, "outcomes": MAX_WEIGHT};
+    assert STEPS[request_id][-1] == "Weighted cost and graduation and earnings higher and location lower.";
+    changed = 0;
+    for item in SESSIONS[request_id] {
+        assert item.bucket == before_bucket[item.unitid];
+        if item.fit != before_fit[item.unitid] {
+            changed = changed + 1;
+        }
+    }
+    assert changed > 0;
+    again = Advisor(request_id=request_id).adjust_weights(0.5, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 1.0);
+    assert len(again) > 0;
+    assert PROFILES[request_id].weights == {"price": 2.0, "location": MIN_WEIGHT, "outcomes": MAX_WEIGHT};
+    assert STEPS[request_id][-1].startswith("Left your weights unchanged");
+}
+
+test "a 1 leaves an existing weight alone, and four changes are refused" {
+    profile = Profile(gpa_unweighted="3.9", major1="Computer Science", weights={"price": 2.0});
+    request_id = "weights-guard";
+    PROFILES[request_id] = profile;
+    SESSIONS[request_id] = passing_colleges(profile);
+    STEPS[request_id] = [];
+    Advisor(request_id=request_id).adjust_weights(1.0, 0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+    assert profile.weights["price"] == 2.0;
+    assert profile.weights["location"] == 0.5;
+    request_id = "weights-too-many";
+    fresh = Profile(gpa_unweighted="3.9", major1="Computer Science");
+    PROFILES[request_id] = fresh;
+    SESSIONS[request_id] = passing_colleges(fresh);
+    STEPS[request_id] = [];
+    Advisor(request_id=request_id).adjust_weights(2.0, 0.5, 2.0, 0.5, 1.0, 1.0, 1.0, 1.0);
+    assert fresh.weights == {};
+    assert STEPS[request_id][-1].startswith("Left your weights unchanged");
 }
 
 test "weights chosen by the agent come back to the page" {
@@ -160,7 +197,7 @@ test "weights chosen by the agent come back to the page" {
     result = ask_advisor("Cost matters most to me", cs_profile());
     assert result.ok;
     assert result.weights == {"price": 2.0};
-    assert any(step.startswith("Re-weighted: cost ×2") for step in result.steps);
+    assert any(step == "Weighted cost higher." for step in result.steps);
 }
 
 test "pick reasons are cut to one sentence" {

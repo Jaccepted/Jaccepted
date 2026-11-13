@@ -135,7 +135,8 @@ def:pub IntakeForm -> JsxElement {
         income_bracket: str = "",
         home_state: str = "",
         home_zip: str = "",
-        first_gen: str = "";
+        first_gen: str = "",
+        weight_json: str = "";
 
     navigate = useNavigate();
 
@@ -192,7 +193,8 @@ def:pub IntakeForm -> JsxElement {
             "income_bracket": income_bracket,
             "home_state": home_state,
             "home_zip": home_zip,
-            "first_gen": first_gen
+            "first_gen": first_gen,
+            "weights": parsed_weights()
         });
     }
 
@@ -274,6 +276,11 @@ def:pub IntakeForm -> JsxElement {
             home_state = take(data, "home_state", "");
             home_zip = take(data, "home_zip", "");
             first_gen = take(data, "first_gen", "");
+            if data["weights"] {
+                weight_json = JSON.stringify(data["weights"]);
+            } else {
+                weight_json = "";
+            }
         } except Exception {
             return;
         }
@@ -494,6 +501,18 @@ def:pub IntakeForm -> JsxElement {
         home_state = "";
         home_zip = "";
         first_gen = "";
+        weight_json = "";
+    }
+
+    def parsed_weights -> any {
+        if not weight_json.strip() {
+            return {};
+        }
+        try {
+            return JSON.parse(weight_json);
+        } except Exception {
+            return {};
+        }
     }
 
     def step_style(index: str) -> dict[str, str] {

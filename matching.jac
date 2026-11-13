@@ -192,9 +192,12 @@ glob PROGRAMS: dict[str, list[str]] = load_programs();
 glob CDS: dict[str, dict[str, any]] = load_cds();
 glob ZIPS: dict[str, list[float]] = load_zips();
 
-# Preferences the advisor can re-weight, and the cap on any multiplier.
+# Preferences the advisor can re-weight. Multipliers stay in a small range so one
+# tool call cannot wipe a preference out or let it drown the rest.
 glob WEIGHT_KEYS: list[str] = ["major", "location", "setting", "distance", "size", "type", "religion", "hbcu", "womens", "price", "outcomes"];
+glob MIN_WEIGHT: float = 0.25;
 glob MAX_WEIGHT: float = 3.0;
+glob MAX_WEIGHT_CHANGES: int = 3;
 
 glob STATE_NAMES: dict[str, str] = {
     "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
@@ -531,13 +534,36 @@ def bucket_for(admit: float | None, open_admission: bool, position: str) -> str 
     return "target";
 }
 
-"""A preference's weight, times the student's multiplier for it (0 to 3, 1 when unset).
+"""Drop multipliers outside 0.25–3, and drop the default of 1. Unknown keys are ignored."""
+def sanitize_weights(raw: dict[str, any] | None) -> dict[str, float] {
+    kept: dict[str, float] = {};
+    if raw is None {
+        return kept;
+    }
+    for key in WEIGHT_KEYS {
+        if key not in raw {
+            continue;
+        }
+        try {
+            value = float(raw[key]);
+        } except Exception {
+            continue;
+        }
+        if not math.isfinite(value) or abs(value - 1.0) < 0.001 {
+            continue;
+        }
+        kept[key] = round(max(MIN_WEIGHT, min(MAX_WEIGHT, value)), 2);
+    }
+    return kept;
+}
+
+"""A preference's weight, times the student's multiplier for it (0.25 to 3, 1 when unset).
 Raising a preference marked "don't care" turns it on at nice-to-have strength."""
 def weight_for(profile: Profile, key: str, importance: str) -> float {
     base = weight(importance);
     factor = 1.0;
     if profile.weights and key in profile.weights {
-        factor = max(0.0, min(MAX_WEIGHT, float(profile.weights[key])));
+        factor = max(MIN_WEIGHT, min(MAX_WEIGHT, float(profile.weights[key])));
     }
     if base == 0.0 and factor > 1.0 {
         base = 1.0;

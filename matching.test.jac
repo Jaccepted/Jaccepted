@@ -304,7 +304,7 @@ test "weights multiply a preference and are capped" {
     assert weight_for(plain, "price", "nice") == 1.0;
     assert weight_for(Profile(weights={"price": 2.0}), "price", "nice") == 2.0;
     assert weight_for(Profile(weights={"price": 99.0}), "price", "nice") == MAX_WEIGHT;
-    assert weight_for(Profile(weights={"price": -4.0}), "price", "nice") == 0.0;
+    assert weight_for(Profile(weights={"price": -4.0}), "price", "nice") == MIN_WEIGHT;
     # Raising a "don't care" preference turns it on.
     assert weight_for(Profile(weights={"price": 2.0}), "price", "ignore") == 2.0;
     assert weight_for(Profile(weights={"price": 0.5}), "price", "ignore") == 0.0;
