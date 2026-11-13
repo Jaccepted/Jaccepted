@@ -21,7 +21,7 @@ import from .theme {
     FIT,
     HINT,
     LEDE,
-    LINK,
+    BACK_LINK,
     PAGE,
     REASONS,
     SECTION_TITLE,
@@ -190,7 +190,7 @@ def CollegeBody(detail: CollegeDetail, profile: Profile) -> JsxElement {
                 {for flag in flags {
                     <span key={flag} style={BADGE}>{flag}</span>
                 }}
-                {site and <a style={LINK} href={site} target="_blank" rel="noreferrer">Visit website ↗</a>}
+                {site and <a style={BACK_LINK} href={site} target="_blank" rel="noreferrer">Visit website ↗</a>}
             </p>
             <p style={HINT}>Reach, Target and Likely are estimates from public data, not admission predictions.</p>
         </header>
@@ -319,7 +319,7 @@ def:pub CollegeView -> JsxElement {
     <>
         <TopNav current="" saved_count={saved_count} />
         <div style={PAGE}>
-            <p><Link style={LINK} to="/results">← Back to results</Link></p>
+            <p><Link style={BACK_LINK} to="/results">← Back to results</Link></p>
             {if status == "loading" {
                 <>
                     <p style={HINT} role="status">Loading college…</p>

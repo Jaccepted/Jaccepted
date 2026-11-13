@@ -27,8 +27,9 @@ glob PANEL: dict[str, str] = {
     "right": "20px",
     "bottom": "92px",
     "zIndex": "40",
-    "width": "min(400px, calc(100vw - 24px))",
+    "width": "min(400px, calc(100vw - 40px))",
     "height": "min(620px, calc(100vh - 120px))",
+    "maxHeight": "calc(100dvh - 120px)",
     "display": "flex",
     "flexDirection": "column",
     "background": "var(--surface)",
@@ -76,13 +77,13 @@ def:pub ChatBubble -> JsxElement {
                     <LogoMark size={26} />
                     <div style={{"flex": "1", "minWidth": "0"}}>
                         <strong style={{"display": "block"}}>Your advisor</strong>
-                        <Link to="/advisor" style={{"color": "var(--accent-text)", "fontSize": "0.85rem", "fontWeight": "600"}}>Open full page</Link>
+                        <Link to="/advisor" style={{"color": "var(--accent-text)", "fontSize": "0.85rem", "fontWeight": "600", "display": "inline-block", "padding": "0.95rem 0 0.7rem"}}>Open full page</Link>
                     </div>
                     <button
                         type="button"
                         onClick={lambda { open = False; }}
                         aria-label="Close advisor chat"
-                        style={{"width": "36px", "height": "36px", "borderRadius": "999px", "border": "1px solid var(--border)", "background": "var(--surface)", "color": "var(--text)", "cursor": "pointer", "font": "inherit"}}
+                        style={{"width": "44px", "height": "44px", "borderRadius": "999px", "border": "1px solid var(--border)", "background": "var(--surface)", "color": "var(--text)", "cursor": "pointer", "font": "inherit"}}
                     >
                         ✕
                     </button>

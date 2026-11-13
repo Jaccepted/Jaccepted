@@ -58,6 +58,12 @@ input, select, textarea { color: var(--text); }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
 [data-glow] { transition: box-shadow 0.25s, border-color 0.25s; }
 [data-glow]:hover { box-shadow: var(--glow); border-color: var(--accent-soft); }
+@media (max-width: 640px), (pointer: coarse) {
+    button, select, summary, textarea, input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px !important; }
+    button { min-width: 44px !important; }
+    select, textarea, input:not([type="checkbox"]):not([type="radio"]) { font-size: 16px !important; }
+    nav a { min-height: 44px; }
+}
 """;
 
 def:pub Shell(children: any) -> JsxElement {
@@ -642,6 +648,22 @@ glob:pub BADGE: dict[str, str] = {
 glob:pub LINK: dict[str, str] = {
     "color": "var(--accent-text)",
     "fontWeight": "650"
+};
+
+"""A link that stands on its own line (Back to results), tall enough to tap."""
+glob:pub BACK_LINK: dict[str, str] = {
+    "color": "var(--accent-text)",
+    "fontWeight": "650",
+    "display": "inline-block",
+    "padding": "0.8rem 0"
+};
+
+"""The logo as a link: centred and tall enough to tap."""
+glob:pub LOGO_LINK: dict[str, str] = {
+    "textDecoration": "none",
+    "display": "inline-flex",
+    "alignItems": "center",
+    "minHeight": "44px"
 };
 
 def:pub bucket_look(bucket: str) -> dict[str, str] {

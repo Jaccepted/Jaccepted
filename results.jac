@@ -239,7 +239,7 @@ def:pub ResultsView -> JsxElement {
                                     type="search"
                                     style={TOOL_INPUT}
                                     value={query}
-                                    placeholder="Name, city, or state (MI)"
+                                    placeholder="Name, city, or state"
                                     aria-label="Search colleges by name, city, or state"
                                     onChange={lambda (e: any) { query = e.target.value; }}
                                 />
