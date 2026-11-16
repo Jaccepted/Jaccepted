@@ -86,7 +86,9 @@ obj CollegeMatch {
         miles: int | None = None,
         website: str = "",
         shortlist: bool = False,
-        reasons: list[str] = [];
+        reasons: list[str] = [],
+        evidence: int = 2,
+        grad_rate: float | None = None;
 }
 
 """Matches grouped by bucket. Each list holds the best fits only; counts cover all."""
@@ -703,9 +705,16 @@ def match_one(
     if admit is None and cds is not None and cds["admit_rate"] is not None {
         admit = cds["admit_rate"];
     }
+    # How solid the bucket is: 0 = the student's test score vs the college's range,
+    # 1 = GPA vs the admitted average, 2 = admit rate alone. Used to break fit ties.
+    evidence = 0;
     standing = test_standing(profile, college, cds);
     if not standing[0] {
+        evidence = 1;
         standing = gpa_standing(profile, cds);
+    }
+    if not standing[0] {
+        evidence = 2;
     }
     bucket = bucket_for(admit, bool(college["open_admission"]), standing[0]);
     reasons: list[str] = [];
@@ -742,7 +751,9 @@ def match_one(
         net_price=(int(round(price)) if price is not None else None),
         miles=(int(round(miles)) if miles is not None else None),
         website=str(college["website"] or ""),
-        reasons=reasons
+        reasons=reasons,
+        evidence=evidence,
+        grad_rate=(float(college["grad_rate_6yr"]) if college.get("grad_rate_6yr") is not None else None)
     );
 }
 
@@ -764,8 +775,22 @@ def matches_query(item: CollegeMatch, query: str) -> bool {
     return needle in item.name.lower() or needle in item.city.lower();
 }
 
-"""Sort key for the chosen order. Colleges missing the value sort last."""
-def sort_key(item: CollegeMatch, sort: str) -> tuple[int, float, str] {
+"""Tiebreak for colleges that score the same: a bucket backed by stronger evidence
+first, then a higher graduation rate, then the name. Without it, ties (common
+when a student fills in few preferences) came out alphabetical."""
+def tiebreak(item: CollegeMatch) -> tuple[int, float, str] {
+    grad = -item.grad_rate if item.grad_rate is not None else 1.0;
+    return (item.evidence, grad, item.name);
+}
+
+"""Best fit first, ties broken by tiebreak()."""
+def fit_order(item: CollegeMatch) -> tuple[int, int, float, str] {
+    rest = tiebreak(item);
+    return (-item.fit, rest[0], rest[1], rest[2]);
+}
+
+"""Sort key for the chosen order. Colleges missing the value sort last; ties use tiebreak()."""
+def sort_key(item: CollegeMatch, sort: str) -> tuple[int, float, int, float, str] {
     value: float | None = None;
     if sort == "admit" {
         value = item.admit_rate;
@@ -774,24 +799,25 @@ def sort_key(item: CollegeMatch, sort: str) -> tuple[int, float, str] {
     } elif sort == "distance" {
         value = item.miles;
     } elif sort == "name" {
-        value = 0.0;
+        return (0, 0.0, 0, 0.0, item.name);
     } else {
         value = -float(item.fit);
     }
+    rest = tiebreak(item);
     if value is None {
-        return (1, 0.0, item.name);
+        return (1, 0.0, rest[0], rest[1], rest[2]);
     }
-    return (0, float(value), item.name);
+    return (0, float(value), rest[0], rest[1], rest[2]);
 }
 
 def ranked(matches: list[CollegeMatch], bucket: str, sort: str) -> list[CollegeMatch] {
     group = [item for item in matches if item.bucket == bucket];
     # The shortlist is always the best fits, whatever order is shown.
-    group.sort(key=lambda (item: CollegeMatch) -> tuple[int, float, str] { return sort_key(item, "fit"); });
+    group.sort(key=lambda (item: CollegeMatch) -> tuple[int, float, int, float, str] { return sort_key(item, "fit"); });
     for (index, item) in enumerate(group) {
         item.shortlist = index < SHORTLIST[bucket];
     }
-    group.sort(key=lambda (item: CollegeMatch) -> tuple[int, float, str] { return sort_key(item, sort); });
+    group.sort(key=lambda (item: CollegeMatch) -> tuple[int, float, int, float, str] { return sort_key(item, sort); });
     return group[:SHOW_PER_BUCKET];
 }
 
