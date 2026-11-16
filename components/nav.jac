@@ -9,20 +9,12 @@ import from .theme_toggle { ThemeToggle }
 import from .chat_bubble { ChatBubble }
 import from ..theme { LOGO_LINK, TOPBAR, TOPBAR_INNER, TOPBAR_LINK, TOPBAR_LINK_ON, TOPBAR_LINKS }
 
-# Per-student data kept in this browser. Cleared on sign out so the next person
-# on a shared computer starts fresh. The light/dark choice is kept.
-glob STUDENT_KEYS: list[str] = ["jaccepted.intake", "jaccepted.saved", "jaccepted.dismissed", "jaccepted.advisor", "jaccepted.essay_notes"];
+import from ..student_data { forget_student_data }
 
 """Sign out and remove this student's data from the browser. Every sign-out button uses this."""
 def:pub sign_out_and_forget -> None {
     jacLogout();
-    try {
-        for key in STUDENT_KEYS {
-            localStorage.removeItem(key);
-        }
-    } except Exception {
-        return;
-    }
+    forget_student_data();
 }
 
 def:pub TopNav(current: str, saved_count: int = -1) -> JsxElement {

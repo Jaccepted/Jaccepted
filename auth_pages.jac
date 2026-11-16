@@ -3,6 +3,7 @@
 import from "@jac/runtime" { Link, SignupResult, jacLogin, jacSignup, useNavigate }
 import from .components.fields { TextField }
 import from .components.logo { Logo }
+import from .student_data { claim_browser_for }
 import from .theme {
     BACK_LINK,
     BANNER,
@@ -74,6 +75,7 @@ def:pub LoginForm -> JsxElement {
             error = "Email or password is wrong. Passwords are case-sensitive.";
             return;
         }
+        claim_browser_for(email);
         navigate("/advisor");
     }
 
@@ -171,6 +173,7 @@ def:pub SignupForm -> JsxElement {
             error = "Account created, but sign in failed. Try Sign in.";
             return;
         }
+        claim_browser_for(email);
         navigate("/intake");
     }
 
