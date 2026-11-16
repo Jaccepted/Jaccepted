@@ -7,7 +7,7 @@ and shows Reach, Target, and Likely colleges with the reasons for each.
 import from "@jac/runtime" { Link }
 import from .matching { CollegeMatch, MatchResult, Profile, match_colleges }
 import from .profile_data { profile_from }
-import from .list_store { refresh_dismissed, refresh_saved, store_dismissed, store_saved }
+import from .list_store { refresh_dismissed, refresh_intake, refresh_saved, store_dismissed, store_saved }
 import from .components.nav { TopNav }
 import from .components.skeleton { ResultsSkeleton }
 import from .theme {
@@ -170,6 +170,10 @@ def:pub ResultsView -> JsxElement {
             raw = localStorage.getItem("jaccepted.intake");
         } except Exception {
             raw = None;
+        }
+        if not raw {
+            # Right after sign-in the browser copy is empty; restore it from the account.
+            raw = await refresh_intake();
         }
         if not raw {
             status = "missing";

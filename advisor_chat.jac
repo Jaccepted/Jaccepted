@@ -9,7 +9,7 @@ import from "@jac/runtime" { Link }
 import from .advisor { AdvisorChoice, AdvisorResult, ask_advisor }
 import from .matching { CollegeMatch, Profile, starting_list }
 import from .profile_data { profile_from }
-import from .list_store { refresh_saved, store_intake, store_saved }
+import from .list_store { refresh_intake, refresh_saved, store_intake, store_saved }
 import from .components.spinner { Spinner }
 import from .components.logo { LogoMark }
 import from .theme {
@@ -331,6 +331,10 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
             raw = None;
         }
         if not raw {
+            # Right after sign-in the browser copy is empty; restore it from the account.
+            raw = await refresh_intake();
+        }
+        if not raw {
             missing = True;
             return;
         }
@@ -407,6 +411,7 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
 
     async def load -> None {
         restore();
+        await refresh_intake();
         if compact {
             scroll_down();
         }
