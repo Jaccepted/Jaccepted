@@ -375,3 +375,25 @@ test "the starting list is fast enough to show while the advisor works" {
     starting_list(strong_profile());
     assert time.perf_counter() - started < 2.0;
 }
+
+test "fit ties go to stronger evidence, then a higher graduation rate, then the name" {
+    def tied(unitid: str, name: str, evidence: int, grad: float | None) -> CollegeMatch {
+        return CollegeMatch(unitid=unitid, name=name, city="Town", state="MI", bucket="target", fit=90, evidence=evidence, grad_rate=grad);
+    }
+    items = [
+        tied("a", "Alpha", 2, 0.95),
+        tied("b", "Beta", 0, 0.60),
+        tied("c", "Gamma", 0, 0.90),
+        tied("d", "Delta", 0, None),
+        tied("e", "Aardvark", 0, 0.90)
+    ];
+    assert [item.unitid for item in sorted(items, key=fit_order)] == ["e", "c", "b", "d", "a"];
+    assert [item.unitid for item in ranked(items, "target", "fit")] == ["e", "c", "b", "d", "a"];
+}
+
+test "a sparse profile no longer gets an alphabetical list" {
+    sparse = Profile(gpa_unweighted="3.85", gpa_scale="4.0", test_plan="sat", sat_total="1460", major1="Computer Science");
+    top = sorted(passing_colleges(sparse), key=fit_order)[:10];
+    assert [item.name for item in top] != sorted([item.name for item in top]);
+    assert all(item.evidence <= 1 for item in top), "colleges with real score data come first";
+}

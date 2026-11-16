@@ -17,6 +17,7 @@ import from .matching {
     COLLEGES,
     CollegeMatch,
     Profile,
+    fit_order,
     money,
     passing_colleges,
     percent
@@ -121,7 +122,7 @@ def weight_change_sentence(before: dict[str, float], after: dict[str, float]) ->
 }
 
 def top_cards(matches: list[CollegeMatch]) -> list[CollegeCard] {
-    ranked_fit = sorted(matches, key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
+    ranked_fit = sorted(matches, key=fit_order);
     best: list[CollegeCard] = [];
     for name in BUCKETS {
         best = best + [card(item) for item in ranked_fit if item.bucket == name][:STARTER_PER_BUCKET];
@@ -238,7 +239,7 @@ obj Advisor {
         } elif sort_by == "distance" {
             items = sorted(items, key=lambda (item: CollegeMatch) -> tuple[int, float] { return missing_last(item.miles); });
         } else {
-            items = sorted(items, key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
+            items = sorted(items, key=fit_order);
         }
         count = max(1, min(limit, TOOL_LIMIT));
         if bucket.lower() not in BUCKETS {
@@ -520,7 +521,7 @@ def run_advisor(request_id: str, question: str, keep: list[str]) -> AdvisorResul
     try {
         profile = PROFILES[request_id];
         by_id = {item.unitid: item for item in SESSIONS[request_id]};
-        ranked_fit = sorted(SESSIONS[request_id], key=lambda (item: CollegeMatch) -> tuple[int, str] { return (-item.fit, item.name); });
+        ranked_fit = sorted(SESSIONS[request_id], key=fit_order);
         starters: list[CollegeCard] = [];
         for name in BUCKETS {
             starters = starters + [card(item) for item in ranked_fit if item.bucket == name][:STARTER_PER_BUCKET];
