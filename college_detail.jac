@@ -8,7 +8,7 @@ import from "@jac/runtime" { Link, useParams }
 import from .matching { CollegeDetail, Profile, college_detail }
 import from .results { dollars }
 import from .profile_data { profile_from }
-import from .list_store { refresh_saved }
+import from .list_store { refresh_intake, refresh_saved }
 import from .components.nav { TopNav }
 import from .components.skeleton { DetailSkeleton }
 import from .theme {
@@ -289,6 +289,10 @@ def:pub CollegeView -> JsxElement {
             raw = localStorage.getItem("jaccepted.intake");
         } except Exception {
             raw = None;
+        }
+        if not raw {
+            # Right after sign-in the browser copy is empty; restore it from the account.
+            raw = await refresh_intake();
         }
         if raw {
             try {

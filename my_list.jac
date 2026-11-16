@@ -6,7 +6,7 @@ along with the list.
 """
 
 import from "@jac/runtime" { Link }
-import from .list_store { balance_warning, refresh_saved, store_saved }
+import from .list_store { balance_warning, refresh_intake, refresh_saved, store_saved }
 import from .essays { EssayIdea, EssayResult, essay_ideas }
 import from .components.nav { TopNav }
 import from .components.spinner { Spinner }
@@ -219,6 +219,8 @@ def:pub MyList -> JsxElement {
 
     async def load -> None {
         items = await refresh_saved();
+        # Restores the profile after sign-in, so essay ideas know the student's majors.
+        await refresh_intake();
         try {
             essay_notes = localStorage.getItem(NOTES_KEY) or "";
         } except Exception {
