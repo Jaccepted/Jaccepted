@@ -15,16 +15,13 @@ import from typing { Generator }
 import from jaclang.byllm.lib { Model }
 import from .matching {
     COLLEGES,
-    MAX_WEIGHT,
-    MAX_WEIGHT_CHANGES,
-    MIN_WEIGHT,
     CollegeMatch,
     Profile,
     money,
     passing_colleges,
-    percent,
-    sanitize_weights
+    percent
 }
+import from .weights { MAX_WEIGHT, MAX_WEIGHT_CHANGES, MIN_WEIGHT, sanitize_weights }
 import from .ai_quota { LIMIT_MESSAGE, use_ai_request }
 
 # The advisor's model. Tests swap in a MockLLM; JACCEPTED_MODEL overrides the
