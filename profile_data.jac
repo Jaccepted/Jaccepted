@@ -1,6 +1,7 @@
 """Turn the intake draft saved in this browser into a matching Profile."""
 
-import from .matching { Profile, sanitize_weights }
+import from .matching { Profile }
+import from .weights { sanitize_weights }
 
 def saved(data: any, key: str, fallback: str) -> str {
     value = data[key];

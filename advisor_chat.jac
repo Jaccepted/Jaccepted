@@ -7,7 +7,7 @@ page and the bubble show the same chat.
 
 import from "@jac/runtime" { Link }
 import from .advisor { AdvisorChoice, AdvisorResult, ask_advisor }
-import from .matching { Profile }
+import from .matching { CollegeMatch, Profile, starting_list }
 import from .profile_data { profile_from }
 import from .list_store { refresh_saved, store_intake, store_saved }
 import from .components.spinner { Spinner }
@@ -47,6 +47,11 @@ glob STARTERS: list[str] = [
 ];
 
 glob CONVERSATION_KEY: str = "jaccepted.advisor";
+
+# Which request the quick starting list belongs to. A list that arrives after
+# the advisor has answered (or after a newer request began) is thrown away.
+# Kept outside the component so a late response sees the current value.
+glob PREVIEW_RUN: dict[str, int] = {"current": 0};
 
 glob WEIGHT_NAMES: dict[str, str] = {
     "price": "cost", "location": "location", "distance": "distance", "setting": "campus setting",
@@ -100,18 +105,47 @@ def PickRow(item: AdvisorChoice, saved: bool, onSave: Callable[[AdvisorChoice], 
     </li>
 }
 
+"""A rule-based match shown while the advisor works. It opens in a new tab so the request keeps running."""
+def PreviewRow(item: CollegeMatch, saved: bool, onSave: Callable[[CollegeMatch], None]) -> JsxElement {
+    <li style={PICK_ROW}>
+        <div style={PICK_TEXT}>
+            <span style={bucket_chip(item.bucket)}>{bucket_name(item.bucket)}</span>
+            <a style={PICK_NAME} href={"/college/" + item.unitid} target="_blank" rel="noreferrer">{item.name}</a>
+            <span style={{"color": "var(--muted)", "fontSize": "0.9rem"}}>{" · " + item.city + ", " + item.state}</span>
+            <p style={PICK_WHY}>{item.reasons[0] if len(item.reasons) > 0 else ""}</p>
+        </div>
+        <button type="button" style={SAVED_BUTTON if saved else SAVE_BUTTON} aria-pressed={saved} onClick={lambda { onSave(item); }}>
+            {"Saved ✓" if saved else "Save"}
+        </button>
+    </li>
+}
+
 def AgentTurn(
     result: AdvisorResult,
+    fallback: list[CollegeMatch],
     compact: bool,
     saved_ids: list[str],
     onSave: Callable[[AdvisorChoice], None],
+    onSaveMatch: Callable[[CollegeMatch], None],
     onFollow: Callable[[str], None]
 ) -> JsxElement {
     <div style={AGENT_ROW}>
         <LogoMark size={28 if compact else 32} />
         <div style={AGENT_BODY}>
             {if not result.ok {
-                <p style={BANNER} role="alert">{result.message}</p>
+                <>
+                    <p style={BANNER} role="alert">{result.message}</p>
+                    {len(fallback) > 0 and <>
+                        <p style={{"margin": "0", "lineHeight": "1.55"}}>
+                            <strong>In the meantime, here is a starting list from your profile.</strong> It is matched by rules, with no AI, so it has no advisor reasoning.
+                        </p>
+                        <ul style={PICK_LIST} aria-label="Starting list">
+                            {for item in fallback {
+                                <PreviewRow key={item.unitid} item={item} saved={item.unitid in saved_ids} onSave={onSaveMatch} />
+                            }}
+                        </ul>
+                    </>}
+                </>
             } else {
                 <>
                     {len(result.steps) > 0 and <details style={STEP_BOX} open={not compact}>
@@ -158,11 +192,13 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         weights: dict[str, float] = {},
         weights_saved: bool = False,
         live_steps: list[str] = [],
+        preview: list[CollegeMatch] = [],
+        fallbacks: dict[str, list[CollegeMatch]] = {},
         saved: list[dict[str, any]] = [];
 
     def remember -> None {
         try {
-            localStorage.setItem(CONVERSATION_KEY, JSON.stringify({"questions": questions, "answers": answers, "weights": weights, "weights_saved": weights_saved}));
+            localStorage.setItem(CONVERSATION_KEY, JSON.stringify({"questions": questions, "answers": answers, "weights": weights, "weights_saved": weights_saved, "fallbacks": fallbacks}));
         } except Exception {
             return;
         }
@@ -184,6 +220,9 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
                 }
                 if data["weights_saved"] {
                     weights_saved = True;
+                }
+                if data["fallbacks"] {
+                    fallbacks = data["fallbacks"] as dict[str, list[CollegeMatch]];
                 }
             }
         } except Exception {
@@ -266,6 +305,20 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         return final;
     }
 
+    """Fetch the quick rule-based list in parallel with the advisor. Never blocks or fails the request.
+    Returns the list so a failed advisor request can still show it."""
+    async def load_preview(profile: Profile, mine: int) -> list[CollegeMatch] {
+        try {
+            found = await starting_list(profile, 4 if compact else 10);
+            if PREVIEW_RUN["current"] == mine and len(found) > 0 {
+                preview = found;
+            }
+            return found;
+        } except Exception {
+            return [];
+        }
+    }
+
     async def send(text: str) -> None {
         question = text.strip();
         if not question or thinking {
@@ -284,6 +337,11 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         draft = "";
         thinking = True;
         live_steps = [];
+        preview = [];
+        PREVIEW_RUN["current"] = PREVIEW_RUN["current"] + 1;
+        mine = PREVIEW_RUN["current"];
+        first_list = len(current_list()) == 0;
+        preview_task: any = None;
         start_ticking();
         questions = questions + [question];
         scroll_down();
@@ -292,6 +350,10 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
             profile = profile_from(JSON.parse(raw));
             if len(Object.keys(weights)) > 0 {
                 profile.weights = weights;
+            }
+            # Only for a first list. Later requests refine a list the student already has.
+            if first_list {
+                preview_task = load_preview(profile, mine);
             }
             streamed: any = None;
             try {
@@ -307,13 +369,36 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         } except Exception {
             answer = AdvisorResult(ok=False, message="The advisor is unavailable right now. Explore still works.");
         }
+        if not answer.ok and preview_task {
+            kept: list[CollegeMatch] = [];
+            try {
+                # Wait briefly for the quick list, but never hold up the error message for it.
+                gave_up = new(Promise, lambda (resolve: any) { setTimeout(lambda { resolve([]); }, 4000); });
+                raced: any = await Promise.race([preview_task, gave_up]);
+                kept = raced as list[CollegeMatch];
+            } except Exception {
+                kept = [];
+            }
+            if len(kept) > 0 {
+                # A computed key in a dict literal doesn't compile to valid JavaScript, so set it in two steps.
+                added: dict[str, list[CollegeMatch]] = {};
+                added[str(len(answers))] = kept;
+                fallbacks = fallbacks | added;
+            }
+        }
         answers = answers + [answer];
+        if not answer.ok {
+            # Put the message back so the student can resend it.
+            draft = question;
+        }
         if answer.ok and answer.weights {
             if JSON.stringify(answer.weights) != JSON.stringify(weights) {
                 weights_saved = False;
             }
             weights = answer.weights;
         }
+        PREVIEW_RUN["current"] = PREVIEW_RUN["current"] + 1;
+        preview = [];
         thinking = False;
         stop_ticking();
         remember();
@@ -354,20 +439,12 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         return [kept["unitid"] as str for kept in saved];
     }
 
-    def toggle_save(item: AdvisorChoice) -> None {
-        if item.unitid in saved_ids() {
-            saved = [kept for kept in saved if kept["unitid"] != item.unitid];
+    """Save a college, or unsave it if it's already on the list."""
+    def toggle_college(college: dict[str, any]) -> None {
+        if college["unitid"] in saved_ids() {
+            saved = [kept for kept in saved if kept["unitid"] != college["unitid"]];
         } else {
-            saved = saved + [{
-                "unitid": item.unitid,
-                "name": item.name,
-                "city": item.city,
-                "state": item.state,
-                "bucket": item.bucket,
-                "fit": item.fit,
-                "admit_rate": item.admit_rate,
-                "net_price": item.net_price
-            }];
+            saved = saved + [college];
         }
         store_saved(saved);
         if onSavedCount {
@@ -375,9 +452,19 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
         }
     }
 
+    def toggle_save(item: AdvisorChoice) -> None {
+        toggle_college({"unitid": item.unitid, "name": item.name, "city": item.city, "state": item.state, "bucket": item.bucket, "fit": item.fit, "admit_rate": item.admit_rate, "net_price": item.net_price});
+    }
+
+    """Same as toggle_save, for a rule-based starting-list college."""
+    def toggle_match(item: CollegeMatch) -> None {
+        toggle_college({"unitid": item.unitid, "name": item.name, "city": item.city, "state": item.state, "bucket": item.bucket, "fit": item.fit, "admit_rate": item.admit_rate, "net_price": item.net_price});
+    }
+
     def start_over -> None {
         questions = [];
         answers = [];
+        fallbacks = {};
         remember();
     }
 
@@ -464,9 +551,11 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
                         {if index < len(answers) {
                             <AgentTurn
                                 result={answers[index]}
+                                fallback={fallbacks[str(index)] or []}
                                 compact={compact}
                                 saved_ids={saved_ids()}
                                 onSave={toggle_save}
+                                onSaveMatch={toggle_match}
                                 onFollow={lambda (text: str) { send(text); }}
                             />
                         }}
@@ -492,6 +581,15 @@ def:pub AdvisorChat(compact: bool = False, autostart: bool = False, onSavedCount
                                     {not compact and len(live_steps) == 0 and <p style={{"margin": "0.2rem 0 0", "color": "var(--muted)", "fontSize": "0.9rem"}}>This usually takes about 10 seconds.</p>}
                                 </div>
                             </div>
+                            {len(preview) > 0 and <div style={{"marginTop": "0.9rem", "paddingTop": "0.8rem", "borderTop": "1px solid var(--border)", "animation": "jac-rise 0.3s ease-out"}}>
+                                <strong>A quick start while I work</strong>
+                                <p style={HINT}>Matched from your profile by the rules, no AI yet. I'm still checking these and will refine the list.</p>
+                                <ul style={PICK_LIST} aria-label="Quick starting list">
+                                    {for item in preview {
+                                        <PreviewRow key={item.unitid} item={item} saved={item.unitid in saved_ids()} onSave={toggle_match} />
+                                    }}
+                                </ul>
+                            </div>}
                         </div>
                     </div>
                 }}

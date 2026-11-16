@@ -13,10 +13,12 @@ import math;
 import os;
 import from .majors { MAJORS }
 import from .intake_rules { parse_num }
+import from .weights { MAX_WEIGHT, MIN_WEIGHT, WEIGHT_KEYS, sanitize_weights }
 
 glob SHOW_PER_BUCKET: int = 25;
 glob MIN_APPLICANTS: int = 50;
 glob SHORTLIST: dict[str, int] = {"reach": 3, "target": 4, "likely": 3};
+glob SHORTLIST_MAX: int = 4;
 
 glob PRICE_KEYS: dict[str, str] = {
     "0-30000": "net_price_0_30k",
@@ -192,12 +194,6 @@ glob PROGRAMS: dict[str, list[str]] = load_programs();
 glob CDS: dict[str, dict[str, any]] = load_cds();
 glob ZIPS: dict[str, list[float]] = load_zips();
 
-# Preferences the advisor can re-weight. Multipliers stay in a small range so one
-# tool call cannot wipe a preference out or let it drown the rest.
-glob WEIGHT_KEYS: list[str] = ["major", "location", "setting", "distance", "size", "type", "religion", "hbcu", "womens", "price", "outcomes"];
-glob MIN_WEIGHT: float = 0.25;
-glob MAX_WEIGHT: float = 3.0;
-glob MAX_WEIGHT_CHANGES: int = 3;
 
 glob STATE_NAMES: dict[str, str] = {
     "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
@@ -534,29 +530,6 @@ def bucket_for(admit: float | None, open_admission: bool, position: str) -> str 
     return "target";
 }
 
-"""Drop multipliers outside 0.25–3, and drop the default of 1. Unknown keys are ignored."""
-def sanitize_weights(raw: dict[str, any] | None) -> dict[str, float] {
-    kept: dict[str, float] = {};
-    if raw is None {
-        return kept;
-    }
-    for key in WEIGHT_KEYS {
-        if key not in raw {
-            continue;
-        }
-        try {
-            value = float(raw[key]);
-        } except Exception {
-            continue;
-        }
-        if not math.isfinite(value) or abs(value - 1.0) < 0.001 {
-            continue;
-        }
-        kept[key] = round(max(MIN_WEIGHT, min(MAX_WEIGHT, value)), 2);
-    }
-    return kept;
-}
-
 """A preference's weight, times the student's multiplier for it (0.25 to 3, 1 when unset).
 Raising a preference marked "don't care" turns it on at nice-to-have strength."""
 def weight_for(profile: Profile, key: str, importance: str) -> float {
@@ -878,6 +851,42 @@ sort is one of fit (default), admit, price, distance, or name.
 """
 def:pub match_colleges(profile: Profile, query: str = "", sort: str = "fit") -> MatchResult {
     return match_profile(profile, query, sort);
+}
+
+"""The shortlist colleges from a result, balanced across Reach, Target and Likely.
+
+When limit is smaller than the shortlist, it takes one from each bucket in
+turn so no bucket is left out, then returns them Reach, Target, Likely.
+"""
+def balanced_picks(result: MatchResult, limit: int) -> list[CollegeMatch] {
+    pools = [
+        [item for item in result.reach if item.shortlist],
+        [item for item in result.target if item.shortlist],
+        [item for item in result.likely if item.shortlist]
+    ];
+    chosen: list[CollegeMatch] = [];
+    position = 0;
+    while len(chosen) < limit and position < SHORTLIST_MAX {
+        for pool in pools {
+            if position < len(pool) and len(chosen) < limit {
+                chosen.append(pool[position]);
+            }
+        }
+        position = position + 1;
+    }
+    order = {"reach": 0, "target": 1, "likely": 2};
+    chosen.sort(key=lambda (item: CollegeMatch) -> tuple[int, int] { return (order[item.bucket], -item.fit); });
+    return chosen;
+}
+
+"""A quick rule-based starting list, with no AI call.
+
+The advisor chat shows this while the AI works, so a student sees real
+matches within a second or two. It is the same shortlist as the Explore page
+(3 reach, 4 target, 3 likely at most), best fits first inside each bucket.
+"""
+def:pub starting_list(profile: Profile, limit: int = 10) -> list[CollegeMatch] {
+    return balanced_picks(match_profile(profile), max(1, min(limit, 10)));
 }
 
 glob DETAIL_FIELDS: list[str] = [

@@ -319,3 +319,59 @@ test "weighting cost more moves cheaper colleges up the fit ranking" {
     }
     assert cheap_share(heavy) >= cheap_share(base);
 }
+
+test "the starting list is the shortlist: 3 reach, 4 target, 3 likely" {
+    picks = starting_list(strong_profile());
+    assert len(picks) == 10;
+    assert len([item for item in picks if item.bucket == "reach"]) == 3;
+    assert len([item for item in picks if item.bucket == "target"]) == 4;
+    assert len([item for item in picks if item.bucket == "likely"]) == 3;
+    assert all(item.shortlist for item in picks);
+}
+
+test "the starting list matches the Explore shortlist exactly" {
+    explore = match_profile(strong_profile());
+    flagged = sorted([item.unitid for item in all_matches(explore) if item.shortlist]);
+    assert sorted([item.unitid for item in starting_list(strong_profile())]) == flagged;
+}
+
+test "the starting list is ordered reach, target, likely, best fit first" {
+    picks = starting_list(strong_profile());
+    order = {"reach": 0, "target": 1, "likely": 2};
+    ranks = [order[item.bucket] for item in picks];
+    assert ranks == sorted(ranks);
+    for bucket in ["reach", "target", "likely"] {
+        fits = [item.fit for item in picks if item.bucket == bucket];
+        assert fits == sorted(fits, reverse=True);
+    }
+}
+
+test "a small starting list still has every bucket" {
+    picks = starting_list(strong_profile(), 3);
+    assert sorted([item.bucket for item in picks]) == ["likely", "reach", "target"];
+    assert len(starting_list(strong_profile(), 5)) == 5;
+}
+
+test "the starting list limit is kept between 1 and 10" {
+    assert len(starting_list(strong_profile(), 0)) == 1;
+    assert len(starting_list(strong_profile(), -4)) == 1;
+    assert len(starting_list(strong_profile(), 50)) == 10;
+}
+
+test "the starting list respects the student's must-haves" {
+    # strong_profile requires a net price of $25,000 or less.
+    for item in starting_list(strong_profile()) {
+        assert item.net_price is not None and item.net_price <= 25000;
+    }
+}
+
+test "the starting list is empty, not an error, when nothing passes the must-haves" {
+    impossible = Profile(gpa_unweighted="3.5", regions="Atlantis", location_importance="must");
+    assert starting_list(impossible) == [];
+}
+
+test "the starting list is fast enough to show while the advisor works" {
+    started = time.perf_counter();
+    starting_list(strong_profile());
+    assert time.perf_counter() - started < 2.0;
+}
